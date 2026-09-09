@@ -1,0 +1,12 @@
+framework:
+    http_client:
+        scoped_clients:
+            binance.client:
+                base_uri: 'https://api.binance.com'
+                timeout: 5
+            kraken.client:
+                base_uri: 'https://api.kraken.com'
+                timeout: 5
+            coinbase.client:
+                base_uri: 'https://api.coinbase.com'
+                timeout: 5
