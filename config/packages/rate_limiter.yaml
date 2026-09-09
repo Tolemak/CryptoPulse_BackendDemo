@@ -1,0 +1,28 @@
+framework:
+    rate_limiter:
+        binance_api:
+            policy: 'token_bucket'
+            limit: 20
+            rate: { interval: '1 second' }
+            storage_service: app.rate_limiter.storage
+        kraken_api:
+            policy: 'token_bucket'
+            limit: 15
+            rate: { interval: '1 second' }
+            storage_service: app.rate_limiter.storage
+        coinbase_api:
+            policy: 'token_bucket'
+            limit: 10
+            rate: { interval: '1 second' }
+            storage_service: app.rate_limiter.storage
+        api_inbound:
+            policy: 'sliding_window'
+            limit: 60
+            interval: '1 minute'
+            storage_service: app.rate_limiter.storage
+        # Global (not per-IP): caps POST /api/prices/refresh.
+        manual_refresh:
+            policy: 'fixed_window'
+            limit: 1
+            interval: '60 seconds'
+            storage_service: app.rate_limiter.storage

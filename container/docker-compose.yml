@@ -1,0 +1,17 @@
+services:
+  web-server:
+    build:
+      context: ./php
+    restart: unless-stopped
+    volumes:
+      - ..:/var/www/site:z
+      - ./apache/default.conf:/etc/apache2/sites-enabled/000-default.conf:z
+      - ./php/php.ini:/usr/local/etc/php/php.ini:z
+    ports:
+      - "40057:80"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
