@@ -13,6 +13,3 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
-
-/AGENTS.md
-/CLAUDE.md
