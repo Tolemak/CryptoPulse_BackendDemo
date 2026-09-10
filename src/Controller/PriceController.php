@@ -37,7 +37,7 @@ final class PriceController extends AbstractController
             }
         }
 
-        return $this->json($prices);
+        return $this->json($this->sortByMarketCap($prices));
     }
 
     #[Route('/{pair}', name: 'prices_show', methods: ['GET'])]
@@ -68,10 +68,12 @@ final class PriceController extends AbstractController
             return $response;
         }
 
-        return $this->json(array_map(
+        $prices = array_map(
             fn (AggregatedPrice $price) => $this->withAth($price),
             $this->refresh->refreshAll(),
-        ));
+        );
+
+        return $this->json($this->sortByMarketCap($prices));
     }
 
     /**
@@ -92,6 +94,7 @@ final class PriceController extends AbstractController
             'athPrice' => $ath?->athPrice,
             'athDate' => $ath?->athDate,
             'pctFromAth' => $this->pctFromAth($price, $ath),
+            'marketCap' => $ath?->marketCap,
         ];
     }
 
@@ -102,5 +105,20 @@ final class PriceController extends AbstractController
         }
 
         return round((($price->median - $ath->athPrice) / $ath->athPrice) * 100, 2);
+    }
+
+    /**
+     * Pairs with no cached market cap yet (ATH not refreshed) sort last rather
+     * than dropping out, so a fresh deploy still lists every polled pair.
+     *
+     * @param array<int, array<string, mixed>> $prices
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function sortByMarketCap(array $prices): array
+    {
+        usort($prices, fn (array $a, array $b) => ($b['marketCap'] ?? -1) <=> ($a['marketCap'] ?? -1));
+
+        return $prices;
     }
 }

@@ -78,6 +78,7 @@ final class CoinGeckoClient
                 (float) $row['ath'],
                 new \DateTimeImmutable($row['ath_date']),
                 $now,
+                isset($row['market_cap']) ? (float) $row['market_cap'] : null,
             );
         }
 

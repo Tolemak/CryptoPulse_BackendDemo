@@ -11,6 +11,7 @@ final readonly class AthInfo
         public float $athPrice,
         public \DateTimeImmutable $athDate,
         public \DateTimeImmutable $updatedAt,
+        public ?float $marketCap = null,
     ) {
     }
 }

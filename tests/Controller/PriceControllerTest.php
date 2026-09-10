@@ -94,6 +94,7 @@ final class PriceControllerTest extends WebTestCase
             100000.0,
             new \DateTimeImmutable('2025-01-20'),
             new \DateTimeImmutable(),
+            1_500_000_000_000.0,
         ));
 
         $client->request('GET', '/api/prices/BTC_USD');
@@ -102,6 +103,35 @@ final class PriceControllerTest extends WebTestCase
         $data = json_decode($client->getResponse()->getContent(), true);
         self::assertEquals(100000.0, $data['athPrice']);
         self::assertEquals(-35.0, $data['pctFromAth']);
+        self::assertEquals(1_500_000_000_000.0, $data['marketCap']);
+    }
+
+    public function testListSortsByMarketCapDescendingWithUnknownsLast(): void
+    {
+        $client = static::createClient();
+        $container = static::getContainer();
+        $priceCache = $container->get(PriceCacheService::class);
+        $athCache = $container->get(AthCacheService::class);
+
+        foreach ([Pair::BTC_USD, Pair::ETH_USD, Pair::SOL_USD] as $pair) {
+            $priceCache->write(new AggregatedPrice(
+                $pair,
+                100.0,
+                [new PriceQuote(Exchange::Binance, $pair, 100.0, new \DateTimeImmutable())],
+                new \DateTimeImmutable(),
+            ));
+        }
+
+        // BTC has the smaller cap here on purpose, to prove sort order isn't coincidentally alphabetical/enum order.
+        $athCache->write(new AthInfo(Pair::BTC_USD, 100000.0, new \DateTimeImmutable(), new \DateTimeImmutable(), 500.0));
+        $athCache->write(new AthInfo(Pair::ETH_USD, 5000.0, new \DateTimeImmutable(), new \DateTimeImmutable(), 2000.0));
+        // SOL has no ATH/market-cap cached yet.
+
+        $client->request('GET', '/api/prices');
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertSame(['ETH_USD', 'BTC_USD', 'SOL_USD'], array_column($data, 'pair'));
     }
 
     public function testShowOmitsAthFieldsWhenNotCachedYet(): void
