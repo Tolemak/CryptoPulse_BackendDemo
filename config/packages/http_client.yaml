@@ -10,3 +10,6 @@ framework:
             coinbase.client:
                 base_uri: 'https://api.coinbase.com'
                 timeout: 5
+            coingecko.client:
+                base_uri: 'https://api.coingecko.com'
+                timeout: 10

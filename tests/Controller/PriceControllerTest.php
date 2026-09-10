@@ -3,9 +3,11 @@
 namespace App\Tests\Controller;
 
 use App\Dto\AggregatedPrice;
+use App\Dto\AthInfo;
 use App\Dto\PriceQuote;
 use App\Enum\Exchange;
 use App\Enum\Pair;
+use App\Service\Price\AthCacheService;
 use App\Service\Price\PriceCacheService;
 use Predis\Client;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -75,6 +77,49 @@ final class PriceControllerTest extends WebTestCase
         $data = json_decode($client->getResponse()->getContent(), true);
         self::assertSame(3200.5, $data['median']);
         self::assertCount(2, $data['breakdown']);
+    }
+
+    public function testShowIncludesAthFieldsWhenCached(): void
+    {
+        $client = static::createClient();
+        $container = static::getContainer();
+        $container->get(PriceCacheService::class)->write(new AggregatedPrice(
+            Pair::BTC_USD,
+            65000.0,
+            [new PriceQuote(Exchange::Binance, Pair::BTC_USD, 65000.0, new \DateTimeImmutable())],
+            new \DateTimeImmutable(),
+        ));
+        $container->get(AthCacheService::class)->write(new AthInfo(
+            Pair::BTC_USD,
+            100000.0,
+            new \DateTimeImmutable('2025-01-20'),
+            new \DateTimeImmutable(),
+        ));
+
+        $client->request('GET', '/api/prices/BTC_USD');
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals(100000.0, $data['athPrice']);
+        self::assertEquals(-35.0, $data['pctFromAth']);
+    }
+
+    public function testShowOmitsAthFieldsWhenNotCachedYet(): void
+    {
+        $client = static::createClient();
+        static::getContainer()->get(PriceCacheService::class)->write(new AggregatedPrice(
+            Pair::SOL_USD,
+            150.0,
+            [new PriceQuote(Exchange::Binance, Pair::SOL_USD, 150.0, new \DateTimeImmutable())],
+            new \DateTimeImmutable(),
+        ));
+
+        $client->request('GET', '/api/prices/SOL_USD');
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertNull($data['athPrice']);
+        self::assertNull($data['pctFromAth']);
     }
 
     public function testRefreshReturns429WhenLimiterAlreadyConsumed(): void

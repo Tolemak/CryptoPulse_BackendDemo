@@ -12,7 +12,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final class CoinbaseClient implements ExchangeClientInterface
+final class CoinbaseClient implements BulkFetchingExchangeClientInterface
 {
     public function __construct(
         #[Target('coinbaseClient')]
@@ -31,22 +31,48 @@ final class CoinbaseClient implements ExchangeClientInterface
 
     public function fetchPrice(Pair $pair): ?PriceQuote
     {
-        if (!$this->limiterFactory->create()->consume()->isAccepted()) {
-            $this->logger->warning('Coinbase rate limit exhausted, skipping poll.', ['pair' => $pair->value]);
+        return $this->fetchPrices([$pair])[$pair->value] ?? null;
+    }
 
-            return null;
-        }
+    /**
+     * Coinbase has no batch spot-price endpoint, so scaling to many pairs
+     * means one HTTP call per pair - fired concurrently here instead of
+     * sequentially, since Symfony's HttpClient dispatches requests as soon
+     * as they're created and only blocks once a response is actually read.
+     *
+     * @param Pair[] $pairs
+     *
+     * @return array<string, PriceQuote|null>
+     */
+    public function fetchPrices(array $pairs): array
+    {
+        $responses = [];
+        foreach ($pairs as $pair) {
+            if (!$this->limiterFactory->create()->consume()->isAccepted()) {
+                $this->logger->warning('Coinbase rate limit exhausted, skipping poll.', ['pair' => $pair->value]);
+                continue;
+            }
 
-        try {
             $symbol = $this->symbolMapper->toCoinbaseSymbol($pair);
-            $response = $this->client->request('GET', "/v2/prices/{$symbol}/spot");
-            $data = $response->toArray();
-
-            return new PriceQuote($this->exchange(), $pair, (float) $data['data']['amount'], new \DateTimeImmutable());
-        } catch (ExceptionInterface $e) {
-            $this->logger->warning('Coinbase price fetch failed.', ['pair' => $pair->value, 'error' => $e->getMessage()]);
-
-            return null;
+            $responses[$pair->value] = $this->client->request('GET', "/v2/prices/{$symbol}/spot");
         }
+
+        $quotes = [];
+        foreach ($responses as $pairValue => $response) {
+            try {
+                $data = $response->toArray();
+                $quotes[$pairValue] = new PriceQuote(
+                    $this->exchange(),
+                    Pair::from($pairValue),
+                    (float) $data['data']['amount'],
+                    new \DateTimeImmutable(),
+                );
+            } catch (ExceptionInterface $e) {
+                $this->logger->warning('Coinbase price fetch failed.', ['pair' => $pairValue, 'error' => $e->getMessage()]);
+                $quotes[$pairValue] = null;
+            }
+        }
+
+        return $quotes;
     }
 }
