@@ -27,6 +27,24 @@ services:
         arguments:
             - '@cache.rate_limiter'
 
+    # Webhook URLs come from unauthenticated callers, so the client must not be
+    # usable as a relay: redirects are refused (they would otherwise sidestep the
+    # URL check) and private/reserved ranges are blocked after DNS resolution.
+    app.http_client.webhook.transport:
+        class: Symfony\Contracts\HttpClient\HttpClientInterface
+        factory: ['Symfony\Component\HttpClient\HttpClient', 'create']
+        arguments:
+            - { max_redirects: 0, timeout: 5, max_duration: 10 }
+
+    app.http_client.webhook:
+        class: Symfony\Component\HttpClient\NoPrivateNetworkHttpClient
+        arguments:
+            - '@app.http_client.webhook.transport'
+
+    App\Service\Alert\WebhookNotifier:
+        arguments:
+            $client: '@app.http_client.webhook'
+
     Predis\ClientInterface:
         class: Predis\Client
         arguments:
