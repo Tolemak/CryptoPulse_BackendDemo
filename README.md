@@ -84,6 +84,14 @@ php -S 127.0.0.1:8000 -t public
 Safe to invoke concurrently — a `symfony/lock` guard skips an overlapping
 run.
 
+All-time-high price data comes from CoinGecko, not the polled exchanges
+(they only ever report the current spot price), and doesn't need to be
+anywhere near as fresh — add a daily cron entry:
+
+```
+0 3 * * * cd /path/to/project && php bin/console app:refresh-ath >> var/log/ath.log 2>&1
+```
+
 ## Tests
 
 ```bash
@@ -99,13 +107,13 @@ Redis instance (`REDIS_URL` in `.env.test`, separate DB index from dev).
 ```
 src/
   Controller/        HTTP endpoints
-  Dto/                Price quotes, aggregates, alert request/view
+  Dto/                Price quotes, aggregates, ATH info, alert request/view
   Enum/               Exchange, AlertCondition, Pair
   Exception/          Domain exceptions, mapped to HTTP status by ApiExceptionListener
-  Service/Exchange/   One client per exchange + the pair→symbol mapper
-  Service/Price/      Aggregation, Redis price cache, refresh orchestration
+  Service/Exchange/   One client per exchange + CoinGecko (ATH) + the id mappers
+  Service/Price/      Aggregation, Redis price/ATH cache, refresh orchestration
   Service/Alert/      Alert storage (Predis), evaluation, webhook delivery
-  Command/            app:poll-prices
+  Command/            app:poll-prices, app:refresh-ath
   EventListener/      Inbound rate limiting, JSON API error responses
 ```
 

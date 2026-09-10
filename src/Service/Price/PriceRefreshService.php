@@ -35,18 +35,18 @@ final class PriceRefreshService
         }
 
         try {
-            $prices = [];
+            $prices = $this->aggregator->aggregateAll(Pair::cases());
+            $pairsWithAPrice = array_map(static fn ($price) => $price->pair, $prices);
+
             foreach (Pair::cases() as $pair) {
-                $price = $this->aggregator->aggregate($pair);
-
-                if ($price === null) {
+                if (!in_array($pair, $pairsWithAPrice, true)) {
                     $this->logger->warning('No exchange returned a price, skipping.', ['pair' => $pair->value]);
-                    continue;
                 }
+            }
 
+            foreach ($prices as $price) {
                 $this->cache->write($price);
                 $this->evaluator->evaluate($price);
-                $prices[] = $price;
             }
 
             return $prices;

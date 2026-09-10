@@ -15,6 +15,14 @@ framework:
             limit: 10
             rate: { interval: '1 second' }
             storage_service: app.rate_limiter.storage
+        # One request covers every pair (CoinGecko's /coins/markets takes a
+        # batch of ids), refreshed daily - the free tier's own limit is far
+        # more generous than this needs to be.
+        coingecko_api:
+            policy: 'token_bucket'
+            limit: 5
+            rate: { interval: '1 minute' }
+            storage_service: app.rate_limiter.storage
         api_inbound:
             policy: 'sliding_window'
             limit: 60
