@@ -29,11 +29,15 @@ final class PriceController extends AbstractController
     #[Route('', name: 'prices_list', methods: ['GET'])]
     public function list(): JsonResponse
     {
+        $pairs = Pair::cases();
+        $pricesByPair = $this->cache->readMany($pairs);
+        $athByPair = $this->athCache->readMany($pairs);
+
         $prices = [];
-        foreach (Pair::cases() as $pair) {
-            $price = $this->cache->read($pair);
+        foreach ($pairs as $pair) {
+            $price = $pricesByPair[$pair->value] ?? null;
             if ($price !== null) {
-                $prices[] = $this->withAth($price);
+                $prices[] = $this->withAth($price, $athByPair[$pair->value] ?? null);
             }
         }
 
@@ -49,7 +53,7 @@ final class PriceController extends AbstractController
             return $this->json(['error' => 'No price data yet for this pair. Try again shortly.'], 404);
         }
 
-        return $this->json($this->withAth($price));
+        return $this->json($this->withAth($price, $this->athCache->read($price->pair)));
     }
 
     /**
@@ -68,9 +72,12 @@ final class PriceController extends AbstractController
             return $response;
         }
 
+        $refreshed = $this->refresh->refreshAll();
+        $athByPair = $this->athCache->readMany(array_map(fn (AggregatedPrice $price) => $price->pair, $refreshed));
+
         $prices = array_map(
-            fn (AggregatedPrice $price) => $this->withAth($price),
-            $this->refresh->refreshAll(),
+            fn (AggregatedPrice $price) => $this->withAth($price, $athByPair[$price->pair->value] ?? null),
+            $refreshed,
         );
 
         return $this->json($this->sortByMarketCap($prices));
@@ -82,10 +89,8 @@ final class PriceController extends AbstractController
      *
      * @return array<string, mixed>
      */
-    private function withAth(AggregatedPrice $price): array
+    private function withAth(AggregatedPrice $price, ?AthInfo $ath): array
     {
-        $ath = $this->athCache->read($price->pair);
-
         return [
             'pair' => $price->pair,
             'median' => $price->median,
