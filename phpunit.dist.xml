@@ -14,7 +14,6 @@
         <ini name="display_errors" value="1" />
         <ini name="error_reporting" value="-1" />
         <server name="APP_ENV" value="test" force="true" />
-        <server name="APP_SECRET" value="$ecretf0rt3st" force="true" />
         <server name="REDIS_URL" value="redis://localhost:6379/1" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />
     </php>
