@@ -30,7 +30,7 @@ final class KrakenClientTest extends TestCase
         $httpClient = new MockHttpClient(function (string $method, string $url) {
             self::assertStringContainsString('pair=XBTUSD', $url);
 
-            return new MockResponse(json_encode([
+            return new MockResponse((string) json_encode([
                 'error' => [],
                 'result' => ['XXBTZUSD' => ['c' => ['65000.50', '0.001']]],
             ]));
@@ -46,7 +46,7 @@ final class KrakenClientTest extends TestCase
 
     public function testFetchPriceReturnsNullOnKrakenError(): void
     {
-        $httpClient = new MockHttpClient(fn () => new MockResponse(json_encode([
+        $httpClient = new MockHttpClient(fn () => new MockResponse((string) json_encode([
             'error' => ['EQuery:Unknown asset pair'],
             'result' => [],
         ])));

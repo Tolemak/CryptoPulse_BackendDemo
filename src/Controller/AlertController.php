@@ -24,6 +24,10 @@ final class AlertController extends AbstractController
     #[Route('', name: 'alerts_create', methods: ['POST'])]
     public function create(#[MapRequestPayload] CreateAlertRequest $request): JsonResponse
     {
+        // MapRequestPayload validates before this runs, so the NotNull fields are set.
+        assert($request->pair !== null && $request->condition !== null);
+        assert($request->threshold !== null && $request->webhookUrl !== null);
+
         $id = Uuid::v7()->toRfc4122();
         $createdAt = new \DateTimeImmutable();
 

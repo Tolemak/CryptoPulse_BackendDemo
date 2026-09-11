@@ -32,16 +32,25 @@ jobs:
         with:
           php-version: '8.4'
           extensions: ctype, iconv, mbstring
-          coverage: none
+          coverage: pcov
 
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      - name: Run tests
-        run: vendor/bin/phpunit
+      - name: Audit dependencies
+        run: composer audit
+
+      - name: Static analysis
+        run: vendor/bin/phpstan analyse --no-progress
+
+      - name: Run tests with coverage
+        run: vendor/bin/phpunit --coverage-clover var/coverage/clover.xml
         env:
           APP_ENV: test
           REDIS_URL: redis://localhost:6379/1
+
+      - name: Enforce coverage threshold
+        run: php bin/check-coverage.php var/coverage/clover.xml 80
 
       - name: Deploy to Mikrus
         env:

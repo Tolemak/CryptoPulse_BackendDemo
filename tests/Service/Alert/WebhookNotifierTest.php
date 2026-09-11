@@ -47,6 +47,7 @@ final class WebhookNotifierTest extends KernelTestCase
     {
         self::bootKernel();
         $notifier = self::getContainer()->get(WebhookNotifier::class);
+        self::assertInstanceOf(WebhookNotifier::class, $notifier);
 
         $alert = new AlertView(
             'test-alert',

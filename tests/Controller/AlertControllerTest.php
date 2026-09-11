@@ -3,6 +3,7 @@
 namespace App\Tests\Controller;
 
 use Predis\Client;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class AlertControllerTest extends WebTestCase
@@ -12,6 +13,11 @@ final class AlertControllerTest extends WebTestCase
         (new Client($_ENV['REDIS_URL']))->flushdb();
     }
 
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
     private function validPayload(array $overrides = []): array
     {
         return array_merge([
@@ -25,10 +31,10 @@ final class AlertControllerTest extends WebTestCase
     public function testCreateAlertReturns201WithAlertView(): void
     {
         $client = static::createClient();
-        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode($this->validPayload()));
+        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: self::encode($this->validPayload()));
 
         self::assertResponseStatusCodeSame(201);
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertNotEmpty($data['id']);
         self::assertSame('BTC_USD', $data['pair']);
         self::assertSame('above', $data['condition']);
@@ -39,10 +45,10 @@ final class AlertControllerTest extends WebTestCase
     public function testCreateAlertReturns422ForInvalidPayload(): void
     {
         $client = static::createClient();
-        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode($this->validPayload(['threshold' => -5])));
+        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: self::encode($this->validPayload(['threshold' => -5])));
 
         self::assertResponseStatusCodeSame(422);
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertArrayHasKey('violations', $data);
         self::assertArrayHasKey('threshold', $data['violations']);
     }
@@ -50,7 +56,7 @@ final class AlertControllerTest extends WebTestCase
     public function testCreateAlertReturns422ForInvalidWebhookUrl(): void
     {
         $client = static::createClient();
-        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode($this->validPayload(['webhookUrl' => 'not-a-url'])));
+        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: self::encode($this->validPayload(['webhookUrl' => 'not-a-url'])));
 
         self::assertResponseStatusCodeSame(422);
     }
@@ -58,8 +64,8 @@ final class AlertControllerTest extends WebTestCase
     public function testGetAndDeleteRoundTrip(): void
     {
         $client = static::createClient();
-        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode($this->validPayload()));
-        $id = json_decode($client->getResponse()->getContent(), true)['id'];
+        $client->request('POST', '/api/alerts', server: ['CONTENT_TYPE' => 'application/json'], content: self::encode($this->validPayload()));
+        $id = self::jsonBody($client)['id'];
 
         $client->request('GET', "/api/alerts/{$id}");
         self::assertResponseIsSuccessful();
@@ -77,5 +83,23 @@ final class AlertControllerTest extends WebTestCase
         $client->request('GET', '/api/alerts/does-not-exist');
 
         self::assertResponseStatusCodeSame(404);
+    }
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private static function encode(array $payload): string
+    {
+        return json_encode($payload, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private static function jsonBody(KernelBrowser $client): array
+    {
+        $content = $client->getResponse()->getContent();
+        self::assertIsString($content);
+
+        return json_decode($content, true, 512, JSON_THROW_ON_ERROR);
     }
 }

@@ -76,6 +76,9 @@ class AlertRepository
         $this->redis->hset(self::hashKey($id), 'firedState', $fired ? '1' : '0');
     }
 
+    /**
+     * @param array<string, string> $data
+     */
     private static function hydrate(string $id, array $data): AlertView
     {
         return new AlertView(

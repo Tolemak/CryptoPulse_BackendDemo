@@ -153,6 +153,8 @@ final class PriceAggregatorServiceTest extends TestCase
 
         // The sequential (non-bulk) client is asked about every pair in the
         // list in turn, so both pairs pick up a quote from each client.
+        self::assertArrayHasKey('BTC_USD', $byPair);
+        self::assertArrayHasKey('ETH_USD', $byPair);
         self::assertCount(2, $byPair['BTC_USD']->breakdown);
         self::assertCount(2, $byPair['ETH_USD']->breakdown);
     }
