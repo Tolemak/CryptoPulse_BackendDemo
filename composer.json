@@ -61,9 +61,11 @@
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
         },
         "post-install-cmd": [
+            "php -r \"file_exists('.env') || touch('.env');\"",
             "@auto-scripts"
         ],
         "post-update-cmd": [
+            "php -r \"file_exists('.env') || touch('.env');\"",
             "@auto-scripts"
         ]
     },
