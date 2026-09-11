@@ -73,7 +73,7 @@ final class PriceController extends AbstractController
         }
 
         $refreshed = $this->refresh->refreshAll();
-        $athByPair = $this->athCache->readMany(array_map(fn (AggregatedPrice $price) => $price->pair, $refreshed));
+        $athByPair = $this->athCache->readMany(array_values(array_map(fn (AggregatedPrice $price) => $price->pair, $refreshed)));
 
         $prices = array_map(
             fn (AggregatedPrice $price) => $this->withAth($price, $athByPair[$price->pair->value] ?? null),
