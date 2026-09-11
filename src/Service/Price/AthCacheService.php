@@ -15,6 +15,10 @@ final class AthCacheService
     // A day plus slack, matching the daily refresh cadence.
     private const int TTL_SECONDS = 90000;
 
+    // Bump whenever AthInfo's shape changes so stale-shaped cache entries are
+    // never unserialized into it - see project_cryptopulse_ath_cache_gotcha.
+    private const string SCHEMA_VERSION = 'v1';
+
     public function __construct(
         private readonly CacheItemPoolInterface $cache,
     ) {
@@ -35,8 +39,30 @@ final class AthCacheService
         return $item->isHit() ? $item->get() : null;
     }
 
+    /**
+     * Single round trip for all pairs, instead of one read per pair.
+     *
+     * @param list<Pair> $pairs
+     *
+     * @return array<string, AthInfo> keyed by Pair::value, misses omitted
+     */
+    public function readMany(array $pairs): array
+    {
+        $items = iterator_to_array($this->cache->getItems(array_map(self::key(...), $pairs)));
+
+        $athByPair = [];
+        foreach ($pairs as $pair) {
+            $item = $items[self::key($pair)] ?? null;
+            if ($item?->isHit()) {
+                $athByPair[$pair->value] = $item->get();
+            }
+        }
+
+        return $athByPair;
+    }
+
     private static function key(Pair $pair): string
     {
-        return 'price.ath.'.$pair->value;
+        return 'price.ath.'.self::SCHEMA_VERSION.'.'.$pair->value;
     }
 }

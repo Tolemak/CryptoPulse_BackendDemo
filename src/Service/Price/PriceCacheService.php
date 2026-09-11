@@ -14,6 +14,10 @@ final class PriceCacheService
     // Slightly over the hourly cron cadence so a late poll doesn't leave a gap.
     private const int TTL_SECONDS = 3900;
 
+    // Bump whenever AggregatedPrice's shape changes so stale-shaped cache entries
+    // are never unserialized into it - see project_cryptopulse_ath_cache_gotcha.
+    private const string SCHEMA_VERSION = 'v1';
+
     public function __construct(
         private readonly CacheItemPoolInterface $cache,
     ) {
@@ -34,8 +38,30 @@ final class PriceCacheService
         return $item->isHit() ? $item->get() : null;
     }
 
+    /**
+     * Single round trip for all pairs, instead of one read per pair.
+     *
+     * @param list<Pair> $pairs
+     *
+     * @return array<string, AggregatedPrice> keyed by Pair::value, misses omitted
+     */
+    public function readMany(array $pairs): array
+    {
+        $items = iterator_to_array($this->cache->getItems(array_map(self::key(...), $pairs)));
+
+        $prices = [];
+        foreach ($pairs as $pair) {
+            $item = $items[self::key($pair)] ?? null;
+            if ($item?->isHit()) {
+                $prices[$pair->value] = $item->get();
+            }
+        }
+
+        return $prices;
+    }
+
     private static function key(Pair $pair): string
     {
-        return 'price.aggregate.'.$pair->value;
+        return 'price.aggregate.'.self::SCHEMA_VERSION.'.'.$pair->value;
     }
 }
