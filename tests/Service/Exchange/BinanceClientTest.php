@@ -29,7 +29,7 @@ final class BinanceClientTest extends TestCase
             self::assertSame('GET', $method);
             self::assertStringContainsString('symbol=BTCUSDT', $url);
 
-            return new MockResponse(json_encode(['symbol' => 'BTCUSDT', 'price' => '65432.10']));
+            return new MockResponse((string) json_encode(['symbol' => 'BTCUSDT', 'price' => '65432.10']));
         });
 
         $client = new BinanceClient($httpClient, $this->unlimitedLimiterFactory(), new PairSymbolMapper(), new NullLogger());

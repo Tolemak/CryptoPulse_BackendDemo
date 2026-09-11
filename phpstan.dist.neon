@@ -1,0 +1,14 @@
+includes:
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # Symfony resolves this through KernelTrait, so PHPStan cannot see the call.
+        -
+            message: '#Method App\\Kernel::getAllowedEnvs\(\) is unused#'
+            path: src/Kernel.php

@@ -10,7 +10,9 @@ use App\Enum\Pair;
 use App\Service\Price\AthCacheService;
 use App\Service\Price\PriceCacheService;
 use Predis\Client;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 final class PriceControllerTest extends WebTestCase
 {
@@ -22,9 +24,8 @@ final class PriceControllerTest extends WebTestCase
     public function testListReturnsOnlyPairsWithCachedData(): void
     {
         $client = static::createClient();
-        $cache = static::getContainer()->get(PriceCacheService::class);
 
-        $cache->write(new AggregatedPrice(
+        $this->priceCache()->write(new AggregatedPrice(
             Pair::BTC_USD,
             65000.0,
             [new PriceQuote(Exchange::Binance, Pair::BTC_USD, 65000.0, new \DateTimeImmutable())],
@@ -34,7 +35,7 @@ final class PriceControllerTest extends WebTestCase
         $client->request('GET', '/api/prices');
 
         self::assertResponseIsSuccessful();
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertCount(1, $data);
         self::assertSame('BTC_USD', $data[0]['pair']);
         self::assertEquals(65000.0, $data[0]['median']);
@@ -59,9 +60,8 @@ final class PriceControllerTest extends WebTestCase
     public function testShowReturnsCachedAggregate(): void
     {
         $client = static::createClient();
-        $cache = static::getContainer()->get(PriceCacheService::class);
 
-        $cache->write(new AggregatedPrice(
+        $this->priceCache()->write(new AggregatedPrice(
             Pair::ETH_USD,
             3200.5,
             [
@@ -74,7 +74,7 @@ final class PriceControllerTest extends WebTestCase
         $client->request('GET', '/api/prices/ETH_USD');
 
         self::assertResponseIsSuccessful();
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertSame(3200.5, $data['median']);
         self::assertCount(2, $data['breakdown']);
     }
@@ -82,14 +82,14 @@ final class PriceControllerTest extends WebTestCase
     public function testShowIncludesAthFieldsWhenCached(): void
     {
         $client = static::createClient();
-        $container = static::getContainer();
-        $container->get(PriceCacheService::class)->write(new AggregatedPrice(
+
+        $this->priceCache()->write(new AggregatedPrice(
             Pair::BTC_USD,
             65000.0,
             [new PriceQuote(Exchange::Binance, Pair::BTC_USD, 65000.0, new \DateTimeImmutable())],
             new \DateTimeImmutable(),
         ));
-        $container->get(AthCacheService::class)->write(new AthInfo(
+        $this->athCache()->write(new AthInfo(
             Pair::BTC_USD,
             100000.0,
             new \DateTimeImmutable('2025-01-20'),
@@ -100,7 +100,7 @@ final class PriceControllerTest extends WebTestCase
         $client->request('GET', '/api/prices/BTC_USD');
 
         self::assertResponseIsSuccessful();
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertEquals(100000.0, $data['athPrice']);
         self::assertEquals(-35.0, $data['pctFromAth']);
         self::assertEquals(1_500_000_000_000.0, $data['marketCap']);
@@ -109,9 +109,8 @@ final class PriceControllerTest extends WebTestCase
     public function testListSortsByMarketCapDescendingWithUnknownsLast(): void
     {
         $client = static::createClient();
-        $container = static::getContainer();
-        $priceCache = $container->get(PriceCacheService::class);
-        $athCache = $container->get(AthCacheService::class);
+        $priceCache = $this->priceCache();
+        $athCache = $this->athCache();
 
         foreach ([Pair::BTC_USD, Pair::ETH_USD, Pair::SOL_USD] as $pair) {
             $priceCache->write(new AggregatedPrice(
@@ -130,14 +129,15 @@ final class PriceControllerTest extends WebTestCase
         $client->request('GET', '/api/prices');
 
         self::assertResponseIsSuccessful();
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertSame(['ETH_USD', 'BTC_USD', 'SOL_USD'], array_column($data, 'pair'));
     }
 
     public function testShowOmitsAthFieldsWhenNotCachedYet(): void
     {
         $client = static::createClient();
-        static::getContainer()->get(PriceCacheService::class)->write(new AggregatedPrice(
+
+        $this->priceCache()->write(new AggregatedPrice(
             Pair::SOL_USD,
             150.0,
             [new PriceQuote(Exchange::Binance, Pair::SOL_USD, 150.0, new \DateTimeImmutable())],
@@ -147,7 +147,7 @@ final class PriceControllerTest extends WebTestCase
         $client->request('GET', '/api/prices/SOL_USD');
 
         self::assertResponseIsSuccessful();
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertNull($data['athPrice']);
         self::assertNull($data['pctFromAth']);
     }
@@ -155,13 +155,43 @@ final class PriceControllerTest extends WebTestCase
     public function testRefreshReturns429WhenLimiterAlreadyConsumed(): void
     {
         $client = static::createClient();
-        static::getContainer()->get('limiter.manual_refresh')->create()->consume();
+
+        $limiter = static::getContainer()->get('limiter.manual_refresh');
+        self::assertInstanceOf(RateLimiterFactory::class, $limiter);
+        $limiter->create()->consume();
 
         $client->request('POST', '/api/prices/refresh');
 
         self::assertResponseStatusCodeSame(429);
         self::assertTrue($client->getResponse()->headers->has('Retry-After'));
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $data = self::jsonBody($client);
         self::assertArrayHasKey('error', $data);
+    }
+
+    private function priceCache(): PriceCacheService
+    {
+        $service = static::getContainer()->get(PriceCacheService::class);
+        self::assertInstanceOf(PriceCacheService::class, $service);
+
+        return $service;
+    }
+
+    private function athCache(): AthCacheService
+    {
+        $service = static::getContainer()->get(AthCacheService::class);
+        self::assertInstanceOf(AthCacheService::class, $service);
+
+        return $service;
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private static function jsonBody(KernelBrowser $client): array
+    {
+        $content = $client->getResponse()->getContent();
+        self::assertIsString($content);
+
+        return json_decode($content, true, 512, JSON_THROW_ON_ERROR);
     }
 }

@@ -28,7 +28,7 @@ final class CoinbaseClientTest extends TestCase
         $httpClient = new MockHttpClient(function (string $method, string $url) {
             self::assertStringContainsString('/v2/prices/BTC-USD/spot', $url);
 
-            return new MockResponse(json_encode([
+            return new MockResponse((string) json_encode([
                 'data' => ['base' => 'BTC', 'currency' => 'USD', 'amount' => '65100.25'],
             ]));
         });
