@@ -3,18 +3,33 @@ updates:
   - package-ecosystem: "composer"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
     open-pull-requests-limit: 5
     groups:
       composer-minor-patch:
         update-types: ["minor", "patch"]
+      composer-major:
+        update-types: ["major"]
+  - package-ecosystem: "docker"
+    directory: "/container/php"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "php"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      docker-minor-patch:
+        update-types: ["minor", "patch"]
+      docker-major:
+        update-types: ["major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
     open-pull-requests-limit: 5
     groups:
       actions-minor-patch:
         update-types: ["minor", "patch"]
+      actions-major:
+        update-types: ["major"]
