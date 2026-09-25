@@ -24,23 +24,23 @@ final class ProxyAndHeadersTest extends WebTestCase
     public function testInboundLimitIsKeyedByTheRealClientBehindCloudflare(): void
     {
         $client = static::createClient();
-        $this->exhaustInboundLimitFor('203.0.113.30');
+        $this->exhaustInboundLimitFor('8.8.4.30');
 
-        $client->request('GET', '/api/prices', server: $this->viaCloudflare('203.0.113.30'));
+        $client->request('GET', '/api/prices', server: $this->viaCloudflare('8.8.4.30'));
         self::assertResponseStatusCodeSame(429);
 
-        $client->request('GET', '/api/prices', server: $this->viaCloudflare('203.0.113.31'));
+        $client->request('GET', '/api/prices', server: $this->viaCloudflare('8.8.4.31'));
         self::assertResponseIsSuccessful();
     }
 
     public function testASpoofedForwardedForEntryCannotDodgeTheLimit(): void
     {
         $client = static::createClient();
-        $this->exhaustInboundLimitFor('203.0.113.30');
+        $this->exhaustInboundLimitFor('8.8.4.30');
 
         $client->request('GET', '/api/prices', server: [
             'REMOTE_ADDR' => self::DOCKER_GATEWAY,
-            'HTTP_X_FORWARDED_FOR' => '198.51.100.2, 203.0.113.30, '.self::CLOUDFLARE_EDGE,
+            'HTTP_X_FORWARDED_FOR' => '9.9.9.2, 8.8.4.30, '.self::CLOUDFLARE_EDGE,
         ]);
 
         self::assertResponseStatusCodeSame(429);
@@ -49,11 +49,11 @@ final class ProxyAndHeadersTest extends WebTestCase
     public function testForwardedHeadersFromAnUntrustedPeerAreIgnored(): void
     {
         $client = static::createClient();
-        $this->exhaustInboundLimitFor('203.0.113.30');
+        $this->exhaustInboundLimitFor('8.8.4.30');
 
         $client->request('GET', '/api/prices', server: [
-            'REMOTE_ADDR' => '203.0.113.30',
-            'HTTP_X_FORWARDED_FOR' => '198.51.100.2',
+            'REMOTE_ADDR' => '8.8.4.30',
+            'HTTP_X_FORWARDED_FOR' => '9.9.9.2',
             'HTTP_X_FORWARDED_PROTO' => 'https',
         ]);
 
@@ -64,7 +64,7 @@ final class ProxyAndHeadersTest extends WebTestCase
     public function testApiResponsesCarrySecurityHeaders(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/api/prices', server: $this->viaCloudflare('203.0.113.30'));
+        $client->request('GET', '/api/prices', server: $this->viaCloudflare('8.8.4.30'));
 
         $headers = $client->getResponse()->headers;
         self::assertSame("default-src 'none'; frame-ancestors 'none'", $headers->get('Content-Security-Policy'));

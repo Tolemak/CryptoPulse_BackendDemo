@@ -77,13 +77,13 @@ final class AlertControllerTest extends WebTestCase
         $client = static::createClient();
         $limiter = static::getContainer()->get('limiter.alert_create');
         self::assertInstanceOf(RateLimiterFactory::class, $limiter);
-        $limiter->create('203.0.113.40')->consume(10);
+        $limiter->create('8.8.4.40')->consume(10);
 
-        $this->post($client, $this->validPayload(), ['REMOTE_ADDR' => '203.0.113.40']);
+        $this->post($client, $this->validPayload(), ['REMOTE_ADDR' => '8.8.4.40']);
         self::assertResponseStatusCodeSame(429);
         self::assertTrue($client->getResponse()->headers->has('Retry-After'));
 
-        $this->post($client, $this->validPayload(), ['REMOTE_ADDR' => '203.0.113.41']);
+        $this->post($client, $this->validPayload(), ['REMOTE_ADDR' => '8.8.4.41']);
         self::assertResponseStatusCodeSame(201);
     }
 
