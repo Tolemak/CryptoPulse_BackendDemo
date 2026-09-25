@@ -2,67 +2,62 @@
 
 namespace App\Service\Exchange;
 
-use App\Dto\PriceQuote;
 use App\Enum\Exchange;
-use App\Enum\Pair;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\DependencyInjection\Attribute\Target;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final class KrakenClient implements ExchangeClientInterface
+final class KrakenClient extends BatchExchangeClient
 {
-    public function __construct(
-        #[Target('krakenClient')]
-        private readonly HttpClientInterface $client,
-        #[Autowire(service: 'limiter.kraken_api')]
-        private readonly RateLimiterFactory $limiterFactory,
-        private readonly PairSymbolMapper $symbolMapper,
-        private readonly LoggerInterface $logger,
-    ) {
-    }
+    private const array THROTTLE_ERRORS = ['EAPI:Rate limit exceeded', 'EGeneral:Too many requests', 'EService:Throttled'];
 
     public function exchange(): Exchange
     {
         return Exchange::Kraken;
     }
 
-    public function fetchPrice(Pair $pair): ?PriceQuote
+    protected function requestPrices(array $pairs): array
     {
-        if (!$this->limiterFactory->create()->consume()->isAccepted()) {
-            $this->logger->warning('Kraken rate limit exhausted, skipping poll.', ['pair' => $pair->value]);
-
-            return null;
+        $symbolsByPairValue = [];
+        foreach ($pairs as $pair) {
+            $symbolsByPairValue[$pair->value] = $this->symbolMapper->toKrakenSymbol($pair);
         }
 
-        try {
-            $response = $this->client->request('GET', '/0/public/Ticker', [
-                'query' => ['pair' => $this->symbolMapper->toKrakenSymbol($pair)],
-            ]);
-            $data = $response->toArray();
+        $data = $this->decode($this->client->request('GET', '/0/public/Ticker', [
+            'query' => ['pair' => implode(',', $symbolsByPairValue)],
+        ]));
 
-            if (!empty($data['error'])) {
-                $this->logger->warning('Kraken returned an error.', ['pair' => $pair->value, 'error' => $data['error']]);
-
-                return null;
+        $errors = $data['error'] ?? [];
+        if (!is_array($errors) || [] !== $errors) {
+            $this->logger->warning('Kraken returned an error.', ['error' => $errors]);
+            if (is_array($errors) && [] !== array_intersect(self::THROTTLE_ERRORS, $errors)) {
+                $this->backOff();
             }
 
-            // Kraken renames the pair in the result key (e.g. XBTUSD -> XXBTZUSD).
-            // Querying a single pair always yields exactly one result entry, so
-            // take it positionally instead of relying on the exact key name.
-            $result = reset($data['result']);
-            if ($result === false) {
-                return null;
-            }
-
-            // "c" = last trade closed [price, lot volume].
-            return new PriceQuote($this->exchange(), $pair, (float) $result['c'][0], new \DateTimeImmutable());
-        } catch (ExceptionInterface $e) {
-            $this->logger->warning('Kraken price fetch failed.', ['pair' => $pair->value, 'error' => $e->getMessage()]);
-
-            return null;
+            return [];
         }
+
+        $result = $data['result'] ?? null;
+        if (!is_array($result)) {
+            return [];
+        }
+
+        $prices = [];
+        foreach ($symbolsByPairValue as $pairValue => $symbol) {
+            $ticker = $result[$symbol] ?? $result[self::legacyResultKey($symbol)] ?? null;
+            $lastTrade = is_array($ticker) ? ($ticker['c'] ?? null) : null;
+            $price = is_array($lastTrade) ? PriceValue::positive($lastTrade[0] ?? null) : null;
+            if (null !== $price) {
+                $prices[$pairValue] = $price;
+            }
+        }
+
+        return $prices;
+    }
+
+    /**
+     * Assets with a legacy code come back under their full name, e.g.
+     * XBTUSD -> XXBTZUSD, ETHUSD -> XETHZUSD.
+     */
+    private static function legacyResultKey(string $symbol): string
+    {
+        return 'X'.substr($symbol, 0, -3).'Z'.substr($symbol, -3);
     }
 }

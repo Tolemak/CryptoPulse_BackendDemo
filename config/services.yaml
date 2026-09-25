@@ -53,6 +53,21 @@ services:
         arguments:
             $client: '@app.http_client.webhook'
 
+    App\Service\Exchange\BinanceClient:
+        arguments:
+            $client: '@binance.client'
+            $limiterFactory: '@limiter.binance_api'
+
+    App\Service\Exchange\KrakenClient:
+        arguments:
+            $client: '@kraken.client'
+            $limiterFactory: '@limiter.kraken_api'
+
+    App\Service\Exchange\CoinbaseClient:
+        arguments:
+            $client: '@coinbase.client'
+            $limiterFactory: '@limiter.coinbase_api'
+
     Predis\ClientInterface:
         class: Predis\Client
         arguments:

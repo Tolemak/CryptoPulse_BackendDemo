@@ -2,77 +2,99 @@
 
 namespace App\Service\Exchange;
 
-use App\Dto\PriceQuote;
 use App\Enum\Exchange;
 use App\Enum\Pair;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\DependencyInjection\Attribute\Target;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final class CoinbaseClient implements BulkFetchingExchangeClientInterface
+/**
+ * The USD spot list covers almost every pair in one call; the few it leaves
+ * out are asked for one by one, concurrently.
+ */
+final class CoinbaseClient extends BatchExchangeClient
 {
-    public function __construct(
-        #[Target('coinbaseClient')]
-        private readonly HttpClientInterface $client,
-        #[Autowire(service: 'limiter.coinbase_api')]
-        private readonly RateLimiterFactory $limiterFactory,
-        private readonly PairSymbolMapper $symbolMapper,
-        private readonly LoggerInterface $logger,
-    ) {
-    }
-
     public function exchange(): Exchange
     {
         return Exchange::Coinbase;
     }
 
-    public function fetchPrice(Pair $pair): ?PriceQuote
+    protected function requestPrices(array $pairs): array
     {
-        return $this->fetchPrices([$pair])[$pair->value] ?? null;
+        $listed = $this->spotPricesByBase($this->decode($this->client->request('GET', '/v2/prices/USD/spot'))['data'] ?? null);
+
+        $prices = [];
+        $missing = [];
+        foreach ($pairs as $pair) {
+            $price = $listed[$this->base($pair)] ?? null;
+            if (null !== $price) {
+                $prices[$pair->value] = $price;
+            } else {
+                $missing[] = $pair;
+            }
+        }
+
+        if ([] === $missing || !$this->acquire(count($missing))) {
+            return $prices;
+        }
+
+        return $prices + $this->fetchIndividually($missing);
     }
 
     /**
-     * Coinbase has no batch spot-price endpoint, so scaling to many pairs
-     * means one HTTP call per pair - fired concurrently here instead of
-     * sequentially, since Symfony's HttpClient dispatches requests as soon
-     * as they're created and only blocks once a response is actually read.
+     * @param list<Pair> $pairs
      *
-     * @param Pair[] $pairs
-     *
-     * @return array<string, PriceQuote|null>
+     * @return array<string, float>
      */
-    public function fetchPrices(array $pairs): array
+    private function fetchIndividually(array $pairs): array
     {
         $responses = [];
         foreach ($pairs as $pair) {
-            if (!$this->limiterFactory->create()->consume()->isAccepted()) {
-                $this->logger->warning('Coinbase rate limit exhausted, skipping poll.', ['pair' => $pair->value]);
+            $responses[$pair->value] = $this->client->request('GET', "/v2/prices/{$this->symbolMapper->toCoinbaseSymbol($pair)}/spot");
+        }
+
+        $prices = [];
+        foreach ($responses as $pairValue => $response) {
+            try {
+                $data = $this->decode($response)['data'] ?? null;
+            } catch (ExceptionInterface $e) {
+                $this->logger->warning('Coinbase price fetch failed.', ['pair' => $pairValue, 'error' => $e->getMessage()]);
                 continue;
             }
 
-            $symbol = $this->symbolMapper->toCoinbaseSymbol($pair);
-            $responses[$pair->value] = $this->client->request('GET', "/v2/prices/{$symbol}/spot");
-        }
-
-        $quotes = [];
-        foreach ($responses as $pairValue => $response) {
-            try {
-                $data = $response->toArray();
-                $quotes[$pairValue] = new PriceQuote(
-                    $this->exchange(),
-                    Pair::from($pairValue),
-                    (float) $data['data']['amount'],
-                    new \DateTimeImmutable(),
-                );
-            } catch (ExceptionInterface $e) {
-                $this->logger->warning('Coinbase price fetch failed.', ['pair' => $pairValue, 'error' => $e->getMessage()]);
-                $quotes[$pairValue] = null;
+            $price = is_array($data) ? PriceValue::positive($data['amount'] ?? null) : null;
+            if (null !== $price) {
+                $prices[$pairValue] = $price;
             }
         }
 
-        return $quotes;
+        return $prices;
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function spotPricesByBase(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $prices = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !is_string($row['base'] ?? null) || 'USD' !== ($row['currency'] ?? null)) {
+                continue;
+            }
+
+            $price = PriceValue::positive($row['amount'] ?? null);
+            if (null !== $price) {
+                $prices[$row['base']] ??= $price;
+            }
+        }
+
+        return $prices;
+    }
+
+    private function base(Pair $pair): string
+    {
+        return explode('-', $this->symbolMapper->toCoinbaseSymbol($pair))[0];
     }
 }

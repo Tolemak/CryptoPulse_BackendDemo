@@ -1,23 +1,24 @@
 framework:
     rate_limiter:
+        # One token per upstream call; a full poll of every pair is a single
+        # batched call (Coinbase adds one per pair missing from its spot list).
+        # Upstream public limits: Binance 6000 weight/min (a batch weighs 4),
+        # Kraken ~1 req/s, Coinbase 10k req/h, CoinGecko free tier ~5-15 req/min.
         binance_api:
             policy: 'token_bucket'
-            limit: 20
-            rate: { interval: '1 second' }
+            limit: 10
+            rate: { interval: '1 minute', amount: 10 }
             storage_service: app.rate_limiter.storage
         kraken_api:
             policy: 'token_bucket'
-            limit: 15
+            limit: 5
             rate: { interval: '1 second' }
             storage_service: app.rate_limiter.storage
         coinbase_api:
             policy: 'token_bucket'
-            limit: 10
-            rate: { interval: '1 second' }
+            limit: 64
+            rate: { interval: '1 minute', amount: 64 }
             storage_service: app.rate_limiter.storage
-        # One request covers every pair (CoinGecko's /coins/markets takes a
-        # batch of ids), refreshed daily - the free tier's own limit is far
-        # more generous than this needs to be.
         coingecko_api:
             policy: 'token_bucket'
             limit: 5
@@ -27,6 +28,11 @@ framework:
             policy: 'sliding_window'
             limit: 60
             interval: '1 minute'
+            storage_service: app.rate_limiter.storage
+        alert_create:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '1 hour'
             storage_service: app.rate_limiter.storage
         # Global (not per-IP): caps POST /api/prices/refresh.
         manual_refresh:

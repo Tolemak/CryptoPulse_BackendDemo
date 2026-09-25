@@ -7,14 +7,13 @@ use App\Service\Exchange\CoinGeckoClient;
 use App\Service\Exchange\CoinGeckoIdMapper;
 use App\Service\Price\AthCacheService;
 use App\Service\Price\AthRefreshService;
+use App\Tests\Support\Upstream;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
-use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 final class RefreshAthCommandTest extends TestCase
 {
@@ -41,14 +40,10 @@ final class RefreshAthCommandTest extends TestCase
      */
     private function command(array $rows): RefreshAthCommand
     {
-        $limiterFactory = new RateLimiterFactory(
-            ['id' => 'test_refresh_ath_cmd', 'policy' => 'token_bucket', 'limit' => 1000, 'rate' => ['interval' => '1 second', 'amount' => 1000]],
-            new InMemoryStorage(),
-        );
-
         $client = new CoinGeckoClient(
             new MockHttpClient(fn () => new MockResponse((string) json_encode($rows))),
-            $limiterFactory,
+            Upstream::unlimited(),
+            Upstream::throttle(),
             new CoinGeckoIdMapper(),
             new NullLogger(),
         );

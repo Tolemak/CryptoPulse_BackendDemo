@@ -18,11 +18,14 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final class CoinGeckoClient
 {
+    private const string UPSTREAM = 'coingecko';
+
     public function __construct(
         #[Target('coingeckoClient')]
         private readonly HttpClientInterface $client,
         #[Autowire(service: 'limiter.coingecko_api')]
         private readonly RateLimiterFactory $limiterFactory,
+        private readonly UpstreamThrottle $throttle,
         private readonly CoinGeckoIdMapper $idMapper,
         private readonly LoggerInterface $logger,
     ) {
@@ -35,13 +38,7 @@ final class CoinGeckoClient
      */
     public function fetchAthForAll(array $pairs): array
     {
-        if ([] === $pairs) {
-            return [];
-        }
-
-        if (!$this->limiterFactory->create()->consume()->isAccepted()) {
-            $this->logger->warning('CoinGecko rate limit exhausted, skipping ATH refresh.');
-
+        if ([] === $pairs || !$this->throttle->tryAcquire(self::UPSTREAM, $this->limiterFactory)) {
             return [];
         }
 
@@ -58,6 +55,9 @@ final class CoinGeckoClient
                     'per_page' => count($idsByPair),
                 ],
             ]);
+            if ($this->throttle->backOffIfThrottled(self::UPSTREAM, $response)) {
+                return [];
+            }
             $rows = $response->toArray();
         } catch (ExceptionInterface $e) {
             $this->logger->warning('CoinGecko ATH fetch failed.', ['error' => $e->getMessage()]);
@@ -68,20 +68,36 @@ final class CoinGeckoClient
         $now = new \DateTimeImmutable();
         $result = [];
         foreach ($rows as $row) {
-            $pair = $idsByPair[$row['id']] ?? null;
-            if (null === $pair || !isset($row['ath'], $row['ath_date'])) {
-                continue;
+            $pair = is_array($row) && is_string($row['id'] ?? null) ? ($idsByPair[$row['id']] ?? null) : null;
+            $ath = null === $pair ? null : self::toAthInfo($pair, $row, $now);
+            if (null !== $ath) {
+                $result[$pair->value] = $ath;
             }
-
-            $result[$pair->value] = new AthInfo(
-                $pair,
-                (float) $row['ath'],
-                new \DateTimeImmutable($row['ath_date']),
-                $now,
-                isset($row['market_cap']) ? (float) $row['market_cap'] : null,
-            );
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<mixed> $row
+     */
+    private static function toAthInfo(Pair $pair, array $row, \DateTimeImmutable $now): ?AthInfo
+    {
+        $athPrice = PriceValue::positive($row['ath'] ?? null);
+        $athDate = is_string($row['ath_date'] ?? null) ? self::parseDate($row['ath_date']) : null;
+        if (null === $athPrice || null === $athDate) {
+            return null;
+        }
+
+        return new AthInfo($pair, $athPrice, $athDate, $now, PriceValue::positive($row['market_cap'] ?? null));
+    }
+
+    private static function parseDate(string $value): ?\DateTimeImmutable
+    {
+        try {
+            return new \DateTimeImmutable($value);
+        } catch (\Exception) {
+            return null;
+        }
     }
 }
