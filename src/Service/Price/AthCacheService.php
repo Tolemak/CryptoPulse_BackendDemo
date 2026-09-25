@@ -19,50 +19,31 @@ final class AthCacheService
     // never unserialized into it.
     private const string SCHEMA_VERSION = 'v1';
 
-    public function __construct(
-        private readonly CacheItemPoolInterface $cache,
-    ) {
+    /** @var PairObjectCache<AthInfo> */
+    private readonly PairObjectCache $store;
+
+    public function __construct(CacheItemPoolInterface $cache)
+    {
+        $this->store = new PairObjectCache($cache, 'price.ath.'.self::SCHEMA_VERSION, AthInfo::class, self::TTL_SECONDS);
     }
 
     public function write(AthInfo $ath): void
     {
-        $item = $this->cache->getItem(self::key($ath->pair));
-        $item->set($ath);
-        $item->expiresAfter(self::TTL_SECONDS);
-        $this->cache->save($item);
+        $this->store->write($ath->pair, $ath);
     }
 
     public function read(Pair $pair): ?AthInfo
     {
-        $item = $this->cache->getItem(self::key($pair));
-
-        return $item->isHit() ? $item->get() : null;
+        return $this->store->read($pair);
     }
 
     /**
-     * Single round trip for all pairs, instead of one read per pair.
-     *
      * @param list<Pair> $pairs
      *
      * @return array<string, AthInfo> keyed by Pair::value, misses omitted
      */
     public function readMany(array $pairs): array
     {
-        $items = iterator_to_array($this->cache->getItems(array_map(self::key(...), $pairs)));
-
-        $athByPair = [];
-        foreach ($pairs as $pair) {
-            $item = $items[self::key($pair)] ?? null;
-            if ($item?->isHit()) {
-                $athByPair[$pair->value] = $item->get();
-            }
-        }
-
-        return $athByPair;
-    }
-
-    private static function key(Pair $pair): string
-    {
-        return 'price.ath.'.self::SCHEMA_VERSION.'.'.$pair->value;
+        return $this->store->readMany($pairs);
     }
 }
