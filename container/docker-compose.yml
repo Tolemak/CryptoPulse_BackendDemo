@@ -10,7 +10,8 @@ services:
       - ./apache/default.conf:/etc/apache2/sites-enabled/000-default.conf:z
       - ./php/php.ini:/usr/local/etc/php/php.ini:z
     ports:
-      - "40057:80"
+      - "127.0.0.1:40057:80"
+      - "[::1]:40057:80"
     depends_on:
       - redis
 
