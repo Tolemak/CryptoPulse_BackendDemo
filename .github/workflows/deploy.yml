@@ -59,12 +59,14 @@ jobs:
         if: github.event_name == 'push'
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_TARGET: ${{ secrets.DEPLOY_TARGET }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # Pinned host key — copied verbatim from FileActions_BackendDemo's workflow
           # (same host, same key; verified 2026-09-08 against the server directly).
-          echo '[konrad192.mikrus.xyz]:10192 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKISUA7JlS13WF3PQaRdtugdoIwiQWt7QrMuLEJ3wQxy' > ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy_key -p 10192 root@konrad192.mikrus.xyz "crypto-pulse"
+          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "crypto-pulse"
