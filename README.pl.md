@@ -42,12 +42,14 @@ USD blisko, ale to nie jest ścisły peg 1:1.
 | GET    | `/api/prices`           | Ostatnia zagregowana cena dla każdej pary z danymi w cache. |
 | GET    | `/api/prices/{pair}`    | Szczegóły jednej pary (`BTC_USD`, `ETH_USD`, `SOL_USD`) z rozbiciem per giełda. 404, jeśli nic jeszcze nie ma w cache. |
 | POST   | `/api/prices/refresh`   | Wymusza realny re-poll giełd. Limit globalny raz na 60s (`429` + `Retry-After` w przeciwnym razie). |
-| POST   | `/api/alerts`           | Rejestruje alert: `{pair, condition: "above"\|"below", threshold, webhookUrl}`. Zwraca 201 z alertem (id to UUIDv7). |
+| POST   | `/api/alerts`           | Rejestruje alert: `{pair, condition: "above"\|"below", threshold, webhookUrl}`. Zwraca 201 z alertem (id to UUIDv7, `expiresAt` za 30 dni). 10 na godzinę na IP; `503`, gdy aktywnych jest już 500 alertów. |
 | GET    | `/api/alerts/{id}`      | Pobiera alert po ID. |
 | DELETE | `/api/alerts/{id}`      | Usuwa alert. |
 
-Wszystkie odpowiedzi `/api/*` to JSON, w tym błędy. Ruch przychodzący ma też
-limit 60/min na IP.
+Wszystkie odpowiedzi `/api/*` to JSON, w tym błędy, z nagłówkami
+bezpieczeństwa (CSP, `nosniff`, HSTS po HTTPS). Ruch przychodzący ma limit
+60/min na IP klienta — prawdziwe: `X-Forwarded-For` jest honorowany tylko od
+adresów prywatnych i zakresów Cloudflare (`config/packages/framework.yaml`).
 
 ## Uruchomienie
 
@@ -84,6 +86,13 @@ php -S 127.0.0.1:8000 -t public
 Bezpieczne przy równoległym wywołaniu — blokada `symfony/lock` pomija
 nakładający się przebieg.
 
+Każdy poll to jedno zbiorcze zapytanie na giełdę, za lokalnym token bucketem;
+`429`/`418` od giełdy wstrzymuje ją na czas z `Retry-After`. Alerty ocenia
+tylko ta komenda (`POST /api/prices/refresh` nie wysyła webhooków): alert jest
+atomowo rezerwowany przed wysłaniem webhooka, wszystkie webhooki z jednego
+pollu idą równolegle, a nieudane dostarczenie (inny status niż 2xx po 3
+próbach) uzbraja alert ponownie na następny poll.
+
 ## Testy
 
 ```bash
@@ -106,7 +115,7 @@ src/
   Service/Price/      Agregacja, cache cen w Redisie, orkiestracja odświeżenia
   Service/Alert/      Store alertów (Predis), ewaluacja, dostarczanie webhooków
   Command/            app:poll-prices
-  EventListener/      Rate limiting ruchu przychodzącego, JSON-owe błędy API
+  EventListener/      Rate limiting ruchu przychodzącego, JSON-owe błędy API, nagłówki bezpieczeństwa
 ```
 
 ## Autor

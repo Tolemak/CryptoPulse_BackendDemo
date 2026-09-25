@@ -42,12 +42,14 @@ tracks USD closely but isn't a rigorous 1:1 peg.
 | GET    | `/api/prices`          | Latest aggregated price for every pair with cached data. |
 | GET    | `/api/prices/{pair}`   | Detail for one pair (`BTC_USD`, `ETH_USD`, `SOL_USD`), with per-exchange breakdown. 404 if nothing cached yet. |
 | POST   | `/api/prices/refresh`  | Forces a real re-poll of the exchanges. Rate-limited globally to once per 60s (`429` + `Retry-After` otherwise). |
-| POST   | `/api/alerts`          | Register an alert: `{pair, condition: "above"\|"below", threshold, webhookUrl}`. Returns 201 with the alert (id is a UUIDv7). |
+| POST   | `/api/alerts`          | Register an alert: `{pair, condition: "above"\|"below", threshold, webhookUrl}`. Returns 201 with the alert (id is a UUIDv7, `expiresAt` 30 days out). 10 per hour per IP; `503` once 500 alerts are active. |
 | GET    | `/api/alerts/{id}`     | Fetch one alert by id. |
 | DELETE | `/api/alerts/{id}`     | Delete an alert. |
 
-All `/api/*` responses are JSON, including errors. Inbound requests are also
-rate-limited to 60/minute per IP.
+All `/api/*` responses are JSON, including errors, and carry security headers
+(CSP, `nosniff`, HSTS over HTTPS). Inbound requests are rate-limited to
+60/minute per client IP — the real one: `X-Forwarded-For` is trusted only from
+private addresses and Cloudflare's ranges (`config/packages/framework.yaml`).
 
 ## Running it
 
@@ -84,6 +86,13 @@ php -S 127.0.0.1:8000 -t public
 Safe to invoke concurrently — a `symfony/lock` guard skips an overlapping
 run.
 
+Each poll is one batched request per exchange, behind a local token bucket;
+a `429`/`418` from an exchange pauses it for its `Retry-After`. Alerts are
+evaluated by this command only (`POST /api/prices/refresh` sends no
+webhooks): an alert is claimed atomically before its webhook goes out, all
+webhooks of a poll are sent concurrently, and a failed delivery (anything but
+2xx after 3 attempts) re-arms the alert for the next poll.
+
 All-time-high price data comes from CoinGecko, not the polled exchanges
 (they only ever report the current spot price), and doesn't need to be
 anywhere near as fresh — add a daily cron entry:
@@ -114,7 +123,7 @@ src/
   Service/Price/      Aggregation, Redis price/ATH cache, refresh orchestration
   Service/Alert/      Alert storage (Predis), evaluation, webhook delivery
   Command/            app:poll-prices, app:refresh-ath
-  EventListener/      Inbound rate limiting, JSON API error responses
+  EventListener/      Inbound rate limiting, JSON API error responses, security headers
 ```
 
 ## Author
