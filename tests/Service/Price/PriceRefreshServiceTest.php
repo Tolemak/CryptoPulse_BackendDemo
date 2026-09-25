@@ -6,9 +6,6 @@ use App\Dto\AggregatedPrice;
 use App\Dto\PriceQuote;
 use App\Enum\Exchange;
 use App\Enum\Pair;
-use App\Service\Alert\AlertEvaluatorService;
-use App\Service\Alert\AlertRepository;
-use App\Service\Alert\WebhookNotifier;
 use App\Service\Price\PriceAggregatorService;
 use App\Service\Price\PriceCacheService;
 use App\Service\Price\PriceRefreshService;
@@ -58,12 +55,6 @@ final class PriceRefreshServiceTest extends TestCase
             new StubExchangeClient(Exchange::Coinbase, 101.0),
         ]);
 
-        $evaluator = new AlertEvaluatorService(
-            $this->createStub(AlertRepository::class),
-            $this->createStub(WebhookNotifier::class),
-            new NullLogger(),
-        );
-
-        return new PriceRefreshService($aggregator, $cache, $evaluator, $lockFactory, new NullLogger());
+        return new PriceRefreshService($aggregator, $cache, $lockFactory, new NullLogger());
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\EventListener;
 
+use App\Exception\AlertCapacityReachedException;
 use App\Exception\AlertNotFoundException;
 use App\Exception\PairNotFoundException;
 use Psr\Log\LoggerInterface;
@@ -48,6 +49,7 @@ final class ApiExceptionListener
         $status = match (true) {
             $exception instanceof PairNotFoundException => 400,
             $exception instanceof AlertNotFoundException => 404,
+            $exception instanceof AlertCapacityReachedException => 503,
             $exception instanceof HttpExceptionInterface => $exception->getStatusCode(),
             default => 500,
         };
@@ -60,6 +62,7 @@ final class ApiExceptionListener
             ? 'Internal server error.'
             : $exception->getMessage();
 
-        $event->setResponse(new JsonResponse(['error' => $message], $status));
+        $headers = $exception instanceof HttpExceptionInterface ? $exception->getHeaders() : [];
+        $event->setResponse(new JsonResponse(['error' => $message], $status, $headers));
     }
 }

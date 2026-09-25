@@ -20,6 +20,7 @@ final readonly class CreateAlertRequest
         public ?float $threshold = null,
 
         #[Assert\NotBlank]
+        #[Assert\Length(max: 2048)]
         #[Assert\Url(requireTld: true)]
         public ?string $webhookUrl = null,
     ) {

@@ -4,7 +4,6 @@ namespace App\Service\Price;
 
 use App\Dto\AggregatedPrice;
 use App\Enum\Pair;
-use App\Service\Alert\AlertEvaluatorService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Lock\LockFactory;
 
@@ -13,7 +12,6 @@ final class PriceRefreshService
     public function __construct(
         private readonly PriceAggregatorService $aggregator,
         private readonly PriceCacheService $cache,
-        private readonly AlertEvaluatorService $evaluator,
         private readonly LockFactory $lockFactory,
         private readonly LoggerInterface $logger,
     ) {
@@ -46,7 +44,6 @@ final class PriceRefreshService
 
             foreach ($prices as $price) {
                 $this->cache->write($price);
-                $this->evaluator->evaluate($price);
             }
 
             return $prices;

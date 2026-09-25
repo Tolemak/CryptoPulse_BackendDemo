@@ -3,7 +3,10 @@
 namespace App\Tests\Command;
 
 use App\Command\PollPricesCommand;
+use App\Dto\AlertView;
+use App\Enum\AlertCondition;
 use App\Enum\Exchange;
+use App\Enum\Pair;
 use App\Service\Alert\AlertEvaluatorService;
 use App\Service\Alert\AlertRepository;
 use App\Service\Alert\WebhookNotifier;
@@ -22,13 +25,26 @@ final class PollPricesCommandTest extends TestCase
 {
     public function testItPrintsTheMedianAndExchangeCountPerPair(): void
     {
-        $tester = new CommandTester($this->command());
+        $tester = new CommandTester($this->command($this->createStub(AlertRepository::class), $this->createStub(WebhookNotifier::class)));
 
         self::assertSame(0, $tester->execute([]));
         self::assertStringContainsString('BTC_USD: 101.00 (from 3 exchange(s))', $tester->getDisplay());
     }
 
-    private function command(): PollPricesCommand
+    public function testItEvaluatesAlertsAgainstThePolledPrices(): void
+    {
+        $alert = new AlertView('a1', Pair::BTC_USD, AlertCondition::Above, 100.0, 'https://example.test/hook', new \DateTimeImmutable(), new \DateTimeImmutable('+1 day'), false);
+        $repo = $this->createStub(AlertRepository::class);
+        $repo->method('findByPair')->willReturnCallback(fn (Pair $pair) => Pair::BTC_USD === $pair ? [$alert] : []);
+        $repo->method('claimFiring')->willReturn(true);
+
+        $notifier = $this->createMock(WebhookNotifier::class);
+        $notifier->expects(self::once())->method('notifyAll')->willReturn(['a1' => true]);
+
+        self::assertSame(0, (new CommandTester($this->command($repo, $notifier)))->execute([]));
+    }
+
+    private function command(AlertRepository $repo, WebhookNotifier $notifier): PollPricesCommand
     {
         $aggregator = new PriceAggregatorService([
             new StubExchangeClient(Exchange::Binance, 100.0),
@@ -36,20 +52,13 @@ final class PollPricesCommandTest extends TestCase
             new StubExchangeClient(Exchange::Coinbase, 101.0),
         ]);
 
-        $evaluator = new AlertEvaluatorService(
-            $this->createStub(AlertRepository::class),
-            $this->createStub(WebhookNotifier::class),
-            new NullLogger(),
-        );
-
         $refresh = new PriceRefreshService(
             $aggregator,
             new PriceCacheService(new ArrayAdapter()),
-            $evaluator,
             new LockFactory(new InMemoryStore()),
             new NullLogger(),
         );
 
-        return new PollPricesCommand($refresh);
+        return new PollPricesCommand($refresh, new AlertEvaluatorService($repo, $notifier, new NullLogger()));
     }
 }

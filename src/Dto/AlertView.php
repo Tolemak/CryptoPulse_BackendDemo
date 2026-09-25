@@ -14,6 +14,7 @@ final readonly class AlertView
         public float $threshold,
         public string $webhookUrl,
         public \DateTimeImmutable $createdAt,
+        public \DateTimeImmutable $expiresAt,
         public bool $fired,
     ) {
     }

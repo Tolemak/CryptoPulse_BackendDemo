@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Service\Alert\AlertEvaluatorService;
 use App\Service\Price\PriceRefreshService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -17,6 +18,7 @@ final class PollPricesCommand extends Command
 {
     public function __construct(
         private readonly PriceRefreshService $refresh,
+        private readonly AlertEvaluatorService $alerts,
     ) {
         parent::__construct();
     }
@@ -25,7 +27,8 @@ final class PollPricesCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        foreach ($this->refresh->refreshAll() as $price) {
+        $prices = $this->refresh->refreshAll();
+        foreach ($prices as $price) {
             $io->writeln(sprintf(
                 '%s: %.2f (from %d exchange(s))',
                 $price->pair->value,
@@ -33,6 +36,8 @@ final class PollPricesCommand extends Command
                 count($price->breakdown),
             ));
         }
+
+        $this->alerts->evaluate($prices);
 
         return Command::SUCCESS;
     }
