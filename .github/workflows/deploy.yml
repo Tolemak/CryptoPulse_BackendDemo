@@ -13,50 +13,24 @@ permissions:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  ci:
+    uses: Tolemak/.github/.github/workflows/php-ci.yml@v1
+    with:
+      php-version: "8.4"
+      extensions: ctype, iconv, mbstring
+      cs-tool: none
+      redis-version: 7-alpine
+      env: APP_ENV=test
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 5
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: ctype, iconv, mbstring
-          coverage: pcov
-
-      - name: Install PHP dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction
-
-      - name: Audit dependencies
-        run: composer audit
-
-      - name: Static analysis
-        run: vendor/bin/phpstan analyse --no-progress
-
-      - name: Run tests with coverage
-        run: vendor/bin/phpunit --coverage-clover var/coverage/clover.xml
-        env:
-          APP_ENV: test
-          REDIS_URL: redis://localhost:6379/1
-
-      - name: Enforce coverage threshold
-        run: php bin/check-coverage.php var/coverage/clover.xml 80
-
       - name: Deploy to Mikrus
-        if: github.event_name == 'push'
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_TARGET: ${{ secrets.DEPLOY_TARGET }}
@@ -67,6 +41,5 @@ jobs:
           chmod 700 ~/.ssh
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # (same host, same key; verified 2026-09-08 against the server directly).
           echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "crypto-pulse"
