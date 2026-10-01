@@ -9,6 +9,7 @@
         "ext-iconv": "*",
         "nelmio/cors-bundle": "^2.6",
         "predis/predis": "^2.3",
+        "sentry/sentry-symfony": "^5.13",
         "symfony/console": "8.1.*",
         "symfony/dotenv": "8.1.*",
         "symfony/flex": "^2",
