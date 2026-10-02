@@ -3,3 +3,5 @@ when@prod:
         dsn: '%env(default::SENTRY_DSN)%'
         options:
             send_default_pii: false
+            ignore_exceptions:
+                - Symfony\Component\HttpKernel\Exception\NotFoundHttpException
