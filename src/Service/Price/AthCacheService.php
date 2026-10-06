@@ -12,14 +12,8 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 final class AthCacheService
 {
-    /**
-     * A day plus slack, matching the daily refresh cadence.
-     */
     private const int TTL_SECONDS = 90000;
 
-    /**
-     * Bump whenever AthInfo's shape changes so stale-shaped cache entries are never unserialized into it.
-     */
     private const string SCHEMA_VERSION = 'v1';
 
     /** @var PairObjectCache<AthInfo> */
