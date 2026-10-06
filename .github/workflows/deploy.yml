@@ -29,6 +29,7 @@ jobs:
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Deploy to Mikrus
         env:
@@ -42,4 +43,4 @@ jobs:
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "crypto-pulse"
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" -o ServerAliveInterval=30 -o ServerAliveCountMax=60 "$DEPLOY_TARGET" "crypto-pulse"
