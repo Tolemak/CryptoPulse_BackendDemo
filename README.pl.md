@@ -25,6 +25,7 @@ Ceny odświeża cron, nie aplikacja:
 ## API
 
 ```
+GET    /api/health              {"ok":true}, 503 {"ok":false} gdy Redis nie odpowiada
 GET    /api/prices
 GET    /api/prices/{pair}       BTC_USD, ETH_USD, SOL_USD
 POST   /api/prices/refresh      raz na 60 s

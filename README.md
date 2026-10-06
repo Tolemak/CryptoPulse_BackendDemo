@@ -25,6 +25,7 @@ Prices are refreshed by cron, not by the app:
 ## API
 
 ```
+GET    /api/health              {"ok":true}, 503 {"ok":false} if Redis is down
 GET    /api/prices
 GET    /api/prices/{pair}       BTC_USD, ETH_USD, SOL_USD
 POST   /api/prices/refresh      once per 60 s
