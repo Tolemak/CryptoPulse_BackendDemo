@@ -42,4 +42,4 @@ jobs:
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "crypto-pulse"
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT"  -o ConnectTimeout=60 -o ConnectionAttempts=3 "$DEPLOY_TARGET" "crypto-pulse"
