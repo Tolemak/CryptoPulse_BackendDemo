@@ -40,3 +40,16 @@ vendor/bin/phpunit
 ```
 
 Część testów wymaga działającego Redisa (`REDIS_URL` w `.env.test`).
+
+## Uwagi operacyjne
+
+- Zaufane proxy: ruch idzie przez Cloudflare, reverse proxy na hoście i kontener. `trusted_proxies` w `config/packages/framework.yaml` zawiera zakresy prywatne i zakresy Cloudflare (https://www.cloudflare.com/ips/), więc cofanie `X-Forwarded-For` poza te przeskoki daje prawdziwy adres klienta. Forwardowany host i port pozostają niezaufane, bo nic nie buduje bezwzględnych URL-i.
+- Limity zewnętrznych API (`config/packages/rate_limiter.yaml`): jeden token na wywołanie; pełne odpytanie wszystkich par to jedno wywołanie zbiorcze (Coinbase dodaje jedno na parę brakującą na liście spot). Limity publiczne: Binance 6000 wag/min (zbiorcze wywołanie waży 4), Kraken około 1 req/s, Coinbase 10k req/h, CoinGecko free około 5-15 req/min.
+- `manual_refresh` jest globalny, nie per IP: ogranicza `POST /api/prices/refresh` dla całego API, żeby klienci nie mnożyli wywołań do zewnętrznych API.
+- Adresy webhooków pochodzą od nieuwierzytelnionych wywołujących, więc klient HTTP webhooków nie może służyć jako relay: przekierowania są odrzucane (omijałyby sprawdzenie URL-a), a zakresy prywatne i zarezerwowane są blokowane po rozwiązaniu DNS.
+- Wpisy cache mają `SCHEMA_VERSION`; podbij ją w `PriceCacheService` / `AthCacheService`, gdy zmieni się kształt `AggregatedPrice` / `AthInfo`. TTL jest nieco większy niż cykl crona (ceny 3900 s, ATH 90000 s), żeby spóźniony przebieg nie zostawiał luki.
+- Zmiany stanu alertu używają skryptu compare-and-set w Redisie, więc alert przejmuje jeden ewaluator, a wygasły hash nie jest odtwarzany.
+- Kraken używa starszych kodów aktywów dla dwóch par (BTC jako XBT, DOGE jako XDG), patrz `PairSymbolMapper`.
+- `config/services.yaml` definiuje wartości zastępcze dla niewystawionych zmiennych env; nie ma commitowanego `.env`, a prawdziwe wdrożenia dostarczają zmienne środowiskowe.
+- Obraz Dockera instaluje `libonig5` obok `libonig-dev`, bo `mbstring.so` linkuje się z nim w runtime, a apt usunąłby go jako osieroconą zależność przy usuwaniu `libonig-dev`.
+- PHPStan ignoruje raport o nieużywanej `Kernel::getAllowedEnvs()`, bo Symfony wywołuje ją przez `KernelTrait`.

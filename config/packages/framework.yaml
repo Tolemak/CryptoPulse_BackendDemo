@@ -1,15 +1,10 @@
-# see https://symfony.com/doc/current/reference/configuration/framework.html
 framework:
     secret: '%env(APP_SECRET)%'
 
     session: false
 
-    # Cloudflare -> host reverse proxy -> this container. Walking
-    # X-Forwarded-For back past these hops yields the real client IP.
-    # Forwarded host/port stay untrusted: nothing here builds absolute URLs.
     trusted_proxies:
         - private_ranges
-        # https://www.cloudflare.com/ips/
         - 173.245.48.0/20
         - 103.21.244.0/22
         - 103.22.200.0/22

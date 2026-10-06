@@ -8,7 +8,6 @@ parameters:
         - tests
     treatPhpDocTypesAsCertain: false
     ignoreErrors:
-        # Symfony resolves this through KernelTrait, so PHPStan cannot see the call.
         -
             message: '#Method App\\Kernel::getAllowedEnvs\(\) is unused#'
             path: src/Kernel.php
