@@ -39,8 +39,9 @@ final class PairSymbolMapper
         'INJ_USD' => 'INJUSDT',
     ];
 
-    // Kraken keeps legacy asset codes for a couple of pairs (BTC -> XBT,
-    // DOGE -> XDG); everything else is PLAIN_SYMBOL + USD.
+    /**
+     * Kraken keeps legacy asset codes for a couple of pairs (BTC -> XBT, DOGE -> XDG); everything else is PLAIN_SYMBOL + USD.
+     */
     private const array KRAKEN_SYMBOLS = [
         'BTC_USD' => 'XBTUSD',
         'ETH_USD' => 'ETHUSD',

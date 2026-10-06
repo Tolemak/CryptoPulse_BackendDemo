@@ -11,11 +11,14 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 final class PriceCacheService
 {
-    // Slightly over the hourly cron cadence so a late poll doesn't leave a gap.
+    /**
+     * Slightly over the hourly cron cadence so a late poll does not leave a gap.
+     */
     private const int TTL_SECONDS = 3900;
 
-    // Bump whenever AggregatedPrice's shape changes so stale-shaped cache entries
-    // are never unserialized into it.
+    /**
+     * Bump whenever AggregatedPrice's shape changes so stale-shaped cache entries are never unserialized into it.
+     */
     private const string SCHEMA_VERSION = 'v1';
 
     /** @var PairObjectCache<AggregatedPrice> */

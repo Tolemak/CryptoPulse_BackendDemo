@@ -17,8 +17,9 @@ class AlertRepository
 
     private const array REQUIRED_FIELDS = ['pair', 'condition', 'threshold', 'webhookUrl', 'createdAt', 'expiresAt', 'firedState'];
 
-    // Compare-and-set, so an alert is claimed by one evaluator only and a
-    // hash that has already expired is never recreated.
+    /**
+     * Compare-and-set, so an alert is claimed by one evaluator only and a hash that has already expired is never recreated.
+     */
     private const string SWAP_FIRED_STATE = <<<'LUA'
         if redis.call('HGET', KEYS[1], 'firedState') == ARGV[1] then
             redis.call('HSET', KEYS[1], 'firedState', ARGV[2])
