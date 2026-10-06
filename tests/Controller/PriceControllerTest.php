@@ -121,10 +121,8 @@ final class PriceControllerTest extends WebTestCase
             ));
         }
 
-        // BTC has the smaller cap here on purpose, to prove sort order isn't coincidentally alphabetical/enum order.
         $athCache->write(new AthInfo(Pair::BTC_USD, 100000.0, new \DateTimeImmutable(), new \DateTimeImmutable(), 500.0));
         $athCache->write(new AthInfo(Pair::ETH_USD, 5000.0, new \DateTimeImmutable(), new \DateTimeImmutable(), 2000.0));
-        // SOL has no ATH/market-cap cached yet.
 
         $client->request('GET', '/api/prices');
 
