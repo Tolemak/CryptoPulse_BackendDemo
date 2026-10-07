@@ -1,0 +1,10 @@
+.git
+.github
+.vscode
+vendor
+var
+.env
+.env.local
+.env.*
+!.env.example
+.phpunit.cache

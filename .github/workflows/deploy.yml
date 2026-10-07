@@ -25,21 +25,45 @@ jobs:
       redis-version: 7-alpine
       env: APP_ENV=test
 
-  deploy:
+  image:
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE: ghcr.io/tolemak/cryptopulse-app
     steps:
-      - name: Deploy to Mikrus
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_TARGET: ${{ secrets.DEPLOY_TARGET }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      - uses: actions/checkout@v4
+      - name: Build the PHP base
+        run: docker build -t cryptopulse-base container/php
+      - name: Build the runtime image
+        run: >
+          docker build --provenance=false -f container/Dockerfile.app
+          --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          --label org.opencontainers.image.revision=${{ github.sha }}
+          -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+      - name: Smoke test the image
+        run: >
+          docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges:true
+          --user 12345:12345 "$IMAGE:${{ github.sha }}" sh -c
+          'php -m | grep -q mbstring && php -r "require \"vendor/autoload.php\";"
+          && test -r composer.json && test ! -w composer.json
+          && . /etc/apache2/envvars && apache2 -t'
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Push
+        id: push
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "crypto-pulse"
+          docker push --quiet "$IMAGE:${{ github.sha }}"
+          docker push --quiet "$IMAGE:latest"
+          echo "digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE:${{ github.sha }}" | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
