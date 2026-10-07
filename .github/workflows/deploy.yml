@@ -48,7 +48,7 @@ jobs:
           -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
       - name: Smoke test the image
         run: |
-          flags="--network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --user 12345 --tmpfs /run/apache2 --tmpfs /run/lock/apache2 --tmpfs /tmp"
+          flags="--network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --user 12345:12345 --tmpfs /run/apache2:rw,noexec,nosuid,nodev,size=8m,mode=0700,uid=12345,gid=12345 --tmpfs /run/lock/apache2:rw,noexec,nosuid,nodev,size=8m,mode=0700,uid=12345,gid=12345 --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=12345,gid=12345"
           docker run --rm $flags "$IMAGE:${{ github.sha }}" sh -c 'php -m | grep -q mbstring && php -r "require \"vendor/autoload.php\";" && test -r composer.json && test ! -w composer.json && . /etc/apache2/envvars && apache2 -t'
           docker run -d --name smoke $flags "$IMAGE:${{ github.sha }}"
           code=000
