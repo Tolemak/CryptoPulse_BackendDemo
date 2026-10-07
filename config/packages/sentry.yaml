@@ -5,3 +5,6 @@ when@prod:
             send_default_pii: false
             ignore_exceptions:
                 - Symfony\Component\HttpKernel\Exception\NotFoundHttpException
+                - Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException
+                - App\Exception\PairNotFoundException
+                - App\Exception\AlertNotFoundException
