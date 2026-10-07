@@ -15,6 +15,8 @@ docker compose exec web-server php bin/console app:poll-prices
 
 API on `http://localhost:40057`. Without Docker: PHP 8.4, Composer, local Redis, then `composer install` and `php -S 127.0.0.1:8000 -t public`.
 
+Production image: after the checks pass on `master`, CI builds the whole runtime in `container/Dockerfile.app` (Composer `vendor`, Apache on port 8080 as a non-root user), pushes it as `ghcr.io/tolemak/cryptopulse-app:<commit sha>` (and `:latest`) and attaches a signed build provenance attestation. The server pulls the image and verifies the attestation itself; CI never connects to it.
+
 Prices are refreshed by cron, not by the app:
 
 ```
