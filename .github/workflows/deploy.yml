@@ -47,12 +47,19 @@ jobs:
           --label org.opencontainers.image.revision=${{ github.sha }}
           -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
       - name: Smoke test the image
-        run: >
-          docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges:true
-          --user 12345:12345 "$IMAGE:${{ github.sha }}" sh -c
-          'php -m | grep -q mbstring && php -r "require \"vendor/autoload.php\";"
-          && test -r composer.json && test ! -w composer.json
-          && . /etc/apache2/envvars && apache2 -t'
+        run: |
+          flags="--network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --user 12345 --tmpfs /run/apache2 --tmpfs /run/lock/apache2 --tmpfs /tmp"
+          docker run --rm $flags "$IMAGE:${{ github.sha }}" sh -c 'php -m | grep -q mbstring && php -r "require \"vendor/autoload.php\";" && test -r composer.json && test ! -w composer.json && . /etc/apache2/envvars && apache2 -t'
+          docker run -d --name smoke $flags "$IMAGE:${{ github.sha }}"
+          code=000
+          for i in $(seq 1 30); do
+            code=$(docker exec smoke php -r '$c = stream_context_create(["http" => ["ignore_errors" => true, "timeout" => 3]]); @file_get_contents("http://127.0.0.1:8080/robots.txt", false, $c); echo substr($http_response_header[0] ?? "000 000", 9, 3);' || true)
+            [ "$code" = 200 ] && break
+            sleep 1
+          done
+          docker logs smoke
+          docker rm -f smoke
+          test "$code" = 200
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Push
