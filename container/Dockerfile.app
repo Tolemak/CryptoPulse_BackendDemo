@@ -42,9 +42,12 @@ RUN set -eu; \
     mkdir -p /run/apache2 /run/lock/apache2; \
     chown "${APP_UID}:${APP_GID}" /run/apache2 /run/lock/apache2; \
     chmod 0700 /run/apache2 /run/lock/apache2; \
-    ln -sfT /dev/stderr /var/log/apache2/error.log; \
-    ln -sfT /dev/stdout /var/log/apache2/access.log; \
-    ln -sfT /dev/stdout /var/log/apache2/other_vhosts_access.log; \
+    sed -i --follow-symlinks -E \
+      -e 's#^([[:space:]]*ErrorLog[[:space:]]+).*$#\1/proc/self/fd/2#' \
+      -e 's#^([[:space:]]*CustomLog[[:space:]]+)[^[:space:]]+#\1/proc/self/fd/1#' \
+      "$conf/apache2.conf" "$conf"/sites-available/*.conf "$conf"/conf-available/*.conf; \
+    if grep -REq 'APACHE_LOG_DIR|/var/log' "$conf/apache2.conf" "$conf"/sites-enabled/ "$conf"/conf-enabled/; then echo 'log path left in apache config' >&2; exit 1; fi; \
+    grep -Eq '^[[:space:]]*ErrorLog[[:space:]]+/proc/self/fd/2$' "$conf/apache2.conf"; \
     ( set +u; . "$conf/envvars"; apache2 -t )
 USER ${APP_UID}:${APP_GID}
 EXPOSE 8080
