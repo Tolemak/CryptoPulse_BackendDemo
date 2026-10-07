@@ -1,5 +1,7 @@
 # CryptoPulse
 
+[![CI](https://github.com/Tolemak/CryptoPulse_BackendDemo/actions/workflows/deploy.yml/badge.svg?branch=master)](https://github.com/Tolemak/CryptoPulse_BackendDemo/actions/workflows/deploy.yml)
+
 Symfony API that polls Binance, Kraken and Coinbase for crypto prices, keeps the median per pair in Redis and sends webhook alerts when a price crosses a threshold. Redis is the only store, no SQL database. Frontend: [CryptoPulse_Frontend](https://github.com/Tolemak/CryptoPulse_Frontend).
 
 [Polska wersja](README.pl.md)
