@@ -8,7 +8,7 @@ use App\Service\Exchange\CoinbaseClient;
 use App\Service\Exchange\KrakenClient;
 use App\Service\Exchange\PairSymbolMapper;
 use App\Service\Exchange\UpstreamThrottle;
-use Predis\Client;
+use App\Tests\Support\IsolatedRedis;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -21,11 +21,12 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
  */
 final class ExchangeRateLimitConfigTest extends KernelTestCase
 {
+    use IsolatedRedis;
+
     private const int CONSECUTIVE_POLLS = 2;
 
     protected function setUp(): void
     {
-        (new Client($_ENV['REDIS_URL']))->flushdb();
         self::bootKernel();
     }
 

@@ -57,4 +57,6 @@ Some tests need a running Redis (`REDIS_URL` in `.env.test`).
 - Kraken uses legacy asset codes for two pairs (BTC as XBT, DOGE as XDG), see `PairSymbolMapper`.
 - `config/services.yaml` defines fallback values for env vars that are not set; no `.env` is committed and real deployments provide actual environment variables.
 - The Docker image installs `libonig5` next to `libonig-dev` because `mbstring.so` links against it at runtime and apt would otherwise remove it as an orphan when `libonig-dev` is purged.
+- The runtime image has no Composer, tests or dev dependencies; opcache does not re-check timestamps, and Apache prefork is capped at 3 workers with a 64M PHP `memory_limit`, sized for a 1 GiB host. Its `HEALTHCHECK` hits `/robots.txt`, not `/api/health`, so a Redis outage does not mark the container unhealthy.
+- The compose file is for local use: Redis is capped at 24 MB (48 MB container limit) with `noeviction`, so alerts, the system of record, are never dropped silently; writes fail instead of evicting.
 - PHPStan ignores the unused `Kernel::getAllowedEnvs()` report because Symfony calls it through `KernelTrait`.
