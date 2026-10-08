@@ -2,17 +2,14 @@
 
 namespace App\Tests\Controller;
 
-use Predis\Client;
+use App\Tests\Support\IsolatedRedis;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 final class AlertControllerTest extends WebTestCase
 {
-    protected function setUp(): void
-    {
-        (new Client($_ENV['REDIS_URL']))->flushdb();
-    }
+    use IsolatedRedis;
 
     /**
      * @param array<string, mixed> $overrides

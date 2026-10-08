@@ -4,7 +4,10 @@ services:
   web-server:
     build:
       context: ./php
+      target: dev
     restart: unless-stopped
+    mem_limit: 192m
+    cpus: 1.0
     volumes:
       - ..:/var/www/site:z
       - ./apache/default.conf:/etc/apache2/sites-enabled/000-default.conf:z
@@ -13,12 +16,27 @@ services:
       - "127.0.0.1:40057:80"
       - "[::1]:40057:80"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    mem_limit: 48m
+    cpus: 0.5
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 24mb
+      - --maxmemory-policy
+      - noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     volumes:
       - redis-data:/data
 

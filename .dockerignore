@@ -8,3 +8,17 @@ var
 .env.*
 !.env.example
 .phpunit.cache
+tests
+phpunit.dist.xml
+phpstan.dist.neon
+bin/phpunit
+bin/check-coverage.php
+README.md
+README.pl.md
+LICENSE
+.editorconfig
+.gitignore
+.dockerignore
+container/*
+!container/apache/default.conf
+!container/php/php.ini

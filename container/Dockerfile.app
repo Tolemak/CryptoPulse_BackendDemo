@@ -1,9 +1,12 @@
 ARG BASE=cryptopulse-base
 
 FROM ${BASE} AS vendor
+RUN apt-get update && apt-get install -y --no-install-recommends unzip
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /src
 COPY composer.json composer.lock symfony.lock ./
-RUN composer install --no-dev --no-interaction --no-progress --no-scripts --prefer-dist --optimize-autoloader
+COPY src ./src
+RUN composer install --no-dev --no-interaction --no-progress --no-scripts --prefer-dist --classmap-authoritative
 
 FROM ${BASE}
 ARG APP_UID=10001
@@ -24,6 +27,8 @@ RUN set -eu; \
     test -f vendor/autoload.php; \
     install -m 0644 -o 0 -g 0 container/apache/default.conf /etc/apache2/sites-available/000-default.conf; \
     install -m 0644 -o 0 -g 0 container/php/php.ini /usr/local/etc/php/php.ini; \
+    printf '%s\n' '[opcache]' 'opcache.validate_timestamps = 0' > /usr/local/etc/php/conf.d/zz-production.ini; \
+    printf '%s\n' 'APP_ENV=prod' 'APP_DEBUG=0' > .env; \
     chown -R 0:0 /var/www/site; \
     chmod -R u=rwX,go=rX /var/www/site; \
     mkdir -m 0750 var; \
@@ -51,3 +56,5 @@ RUN set -eu; \
     ( set +u; . "$conf/envvars"; apache2 -t )
 USER ${APP_UID}:${APP_GID}
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/robots.txt', false, stream_context_create(['http' => ['timeout' => 3]])) === false ? 1 : 0);"]

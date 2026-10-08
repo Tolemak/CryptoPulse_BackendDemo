@@ -57,4 +57,6 @@ Część testów wymaga działającego Redisa (`REDIS_URL` w `.env.test`).
 - Kraken używa starszych kodów aktywów dla dwóch par (BTC jako XBT, DOGE jako XDG), patrz `PairSymbolMapper`.
 - `config/services.yaml` definiuje wartości zastępcze dla niewystawionych zmiennych env; nie ma commitowanego `.env`, a prawdziwe wdrożenia dostarczają zmienne środowiskowe.
 - Obraz Dockera instaluje `libonig5` obok `libonig-dev`, bo `mbstring.so` linkuje się z nim w runtime, a apt usunąłby go jako osieroconą zależność przy usuwaniu `libonig-dev`.
+- Obraz runtime nie zawiera Composera, testów ani zależności deweloperskich; opcache nie sprawdza znaczników czasu, a Apache prefork jest ograniczony do 3 procesów z `memory_limit` PHP 64M, dobranym do hosta z 1 GiB. `HEALTHCHECK` odpytuje `/robots.txt`, a nie `/api/health`, więc awaria Redisa nie oznacza kontenera jako niezdrowego.
+- Plik compose służy do pracy lokalnej: Redis ma limit 24 MB (kontener 48 MB) z polityką `noeviction`, więc alerty, będące źródłem prawdy, nie są po cichu usuwane; przy zapełnieniu zapisy kończą się błędem.
 - PHPStan ignoruje raport o nieużywanej `Kernel::getAllowedEnvs()`, bo Symfony wywołuje ją przez `KernelTrait`.

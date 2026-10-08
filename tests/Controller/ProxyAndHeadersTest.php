@@ -2,7 +2,7 @@
 
 namespace App\Tests\Controller;
 
-use Predis\Client;
+use App\Tests\Support\IsolatedRedis;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
@@ -13,13 +13,10 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
  */
 final class ProxyAndHeadersTest extends WebTestCase
 {
+    use IsolatedRedis;
+
     private const string DOCKER_GATEWAY = '172.18.0.1';
     private const string CLOUDFLARE_EDGE = '162.158.10.20';
-
-    protected function setUp(): void
-    {
-        (new Client($_ENV['REDIS_URL']))->flushdb();
-    }
 
     public function testInboundLimitIsKeyedByTheRealClientBehindCloudflare(): void
     {

@@ -8,19 +8,25 @@ use PHPUnit\Framework\TestCase;
 
 final class PairSymbolMapperTest extends TestCase
 {
-    /**
-     * The Binance/Kraken lookup arrays are hand-maintained per pair (unlike
-     * Coinbase, which is derived programmatically) - a missing entry is a
-     * silent "Undefined array key" fatal at poll time rather than a
-     * compile-time error, so every new Pair case needs this covered.
-     */
-    public function testEveryPairHasABinanceAndKrakenSymbol(): void
+    private const array KRAKEN_LEGACY_CODES = ['BTC' => 'XBT', 'DOGE' => 'XDG'];
+
+    public function testEveryBinanceSymbolIsTheBaseAssetQuotedInUsdt(): void
     {
         $mapper = new PairSymbolMapper();
 
         foreach (Pair::cases() as $pair) {
-            self::assertNotSame('', $mapper->toBinanceSymbol($pair), $pair->value.' has no Binance symbol mapping');
-            self::assertNotSame('', $mapper->toKrakenSymbol($pair), $pair->value.' has no Kraken symbol mapping');
+            self::assertSame($this->base($pair).'USDT', $mapper->toBinanceSymbol($pair));
+        }
+    }
+
+    public function testEveryKrakenSymbolIsTheBaseAssetQuotedInUsdWithLegacyCodesForBtcAndDoge(): void
+    {
+        $mapper = new PairSymbolMapper();
+
+        foreach (Pair::cases() as $pair) {
+            $base = $this->base($pair);
+
+            self::assertSame((self::KRAKEN_LEGACY_CODES[$base] ?? $base).'USD', $mapper->toKrakenSymbol($pair));
         }
     }
 
@@ -29,5 +35,11 @@ final class PairSymbolMapperTest extends TestCase
         $mapper = new PairSymbolMapper();
 
         self::assertSame('BTC-USD', $mapper->toCoinbaseSymbol(Pair::BTC_USD));
+        self::assertSame('NEAR-USD', $mapper->toCoinbaseSymbol(Pair::NEAR_USD));
+    }
+
+    private function base(Pair $pair): string
+    {
+        return substr($pair->value, 0, -strlen('_USD'));
     }
 }

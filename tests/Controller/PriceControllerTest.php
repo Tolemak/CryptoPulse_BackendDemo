@@ -9,17 +9,14 @@ use App\Enum\Exchange;
 use App\Enum\Pair;
 use App\Service\Price\AthCacheService;
 use App\Service\Price\PriceCacheService;
-use Predis\Client;
+use App\Tests\Support\IsolatedRedis;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 final class PriceControllerTest extends WebTestCase
 {
-    protected function setUp(): void
-    {
-        (new Client($_ENV['REDIS_URL']))->flushdb();
-    }
+    use IsolatedRedis;
 
     public function testListReturnsOnlyPairsWithCachedData(): void
     {
