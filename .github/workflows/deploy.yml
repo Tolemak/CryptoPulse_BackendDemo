@@ -37,7 +37,7 @@ jobs:
     env:
       IMAGE: ghcr.io/tolemak/cryptopulse-app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the PHP base
         run: docker build --target base -t cryptopulse-base container/php
       - name: Build the runtime image
