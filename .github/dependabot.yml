@@ -6,6 +6,9 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 5
     groups:
+      composer-security:
+        applies-to: security-updates
+        patterns: ["*"]
       composer-minor-patch:
         update-types: ["minor", "patch"]
       composer-major:
@@ -19,6 +22,9 @@ updates:
       - dependency-name: "php"
         update-types: ["version-update:semver-minor"]
     groups:
+      docker-security:
+        applies-to: security-updates
+        patterns: ["*"]
       docker-minor-patch:
         update-types: ["minor", "patch"]
       docker-major:
@@ -29,6 +35,9 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 5
     groups:
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
       actions-minor-patch:
         update-types: ["minor", "patch"]
       actions-major:
