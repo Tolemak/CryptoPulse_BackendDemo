@@ -2,9 +2,9 @@
 
 [![status: done](https://img.shields.io/badge/status-done-blue)](https://github.com/Tolemak/CryptoPulse_BackendDemo)
 
-API w Symfony, które pobiera ceny krypto z Binance, Kraken i Coinbase, trzyma medianę dla każdej pary w Redisie i wysyła alerty webhookiem, gdy cena przekroczy próg. Redis to jedyny magazyn, bez bazy SQL. Frontend: [CryptoPulse_Frontend](https://github.com/Tolemak/CryptoPulse_Frontend).
-
 [English version](README.md)
+
+API w Symfony, które pobiera ceny krypto z Binance, Kraken i Coinbase, trzyma medianę dla każdej pary w Redisie i wysyła alerty webhookiem, gdy cena przekroczy próg. Redis to jedyny magazyn, bez bazy SQL. Frontend: [CryptoPulse_Frontend](https://github.com/Tolemak/CryptoPulse_Frontend).
 
 ## Uruchomienie
 
