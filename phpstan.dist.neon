@@ -11,3 +11,4 @@ parameters:
         -
             message: '#Method App\\Kernel::getAllowedEnvs\(\) is unused#'
             path: src/Kernel.php
+            reportUnmatched: false
