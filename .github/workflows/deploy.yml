@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: Tolemak/.github/.github/workflows/php-ci.yml@v1
+    uses: Tolemak/.github/.github/workflows/php-ci.yml@c2cb527de1abeb7ad38907fb52dfb1c9cedbbcec # v1.4.0
     with:
       php-version: "8.4"
       extensions: ctype, iconv, mbstring
@@ -37,7 +37,7 @@ jobs:
     env:
       IMAGE: ghcr.io/tolemak/cryptopulse-app
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the PHP base
         run: docker build --target base -t cryptopulse-base container/php
       - name: Build the runtime image
@@ -57,7 +57,7 @@ jobs:
           docker push --quiet "$IMAGE:latest"
           echo "digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE:${{ github.sha }}" | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
