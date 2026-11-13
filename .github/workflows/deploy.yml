@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
   pull_request:
     branches:
       - master
@@ -12,21 +13,29 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
-    uses: Tolemak/.github/.github/workflows/php-ci.yml@c2cb527de1abeb7ad38907fb52dfb1c9cedbbcec # v1.4.0
+    uses: Tolemak/.github/.github/workflows/php-ci.yml@78b533105915e536089edb90746b108b6b550464 # v2.0.0
     with:
       php-version: "8.4"
       extensions: ctype, iconv, mbstring
       cs-tool: none
       redis-version: 7-alpine
       env: APP_ENV=test
+      coverage-artifact: coverage-php
+
+  quality-gate:
+    needs: [ci]
+    if: ${{ !cancelled() }}
+    uses: Tolemak/.github/.github/workflows/quality-gate.yml@78b533105915e536089edb90746b108b6b550464 # v2.0.0
+    with:
+      needs: ${{ toJSON(needs) }}
 
   image:
-    needs: ci
+    needs: [ci, quality-gate]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
