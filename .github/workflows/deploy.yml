@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: Tolemak/.github/.github/workflows/php-ci.yml@78b533105915e536089edb90746b108b6b550464 # v2.0.0
+    uses: Tolemak/.github/.github/workflows/php-ci.yml@b2d0751e30f19a20e966a927c4de3fd089edc83d # v2.0.1
     with:
       php-version: "8.4"
       extensions: ctype, iconv, mbstring
@@ -30,7 +30,7 @@ jobs:
   quality-gate:
     needs: [ci]
     if: ${{ !cancelled() }}
-    uses: Tolemak/.github/.github/workflows/quality-gate.yml@78b533105915e536089edb90746b108b6b550464 # v2.0.0
+    uses: Tolemak/.github/.github/workflows/quality-gate.yml@b2d0751e30f19a20e966a927c4de3fd089edc83d # v2.0.1
     with:
       needs: ${{ toJSON(needs) }}
 
